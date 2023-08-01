@@ -1,5 +1,27 @@
 {
+  "name": "automation-tests",
+  "description": "A simple repository used for trying out and testing GH Actions solutions",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "echo 'Test'",
+    "build": "ncc build -o dist/index.js src/main.ts",
+    "tsc": "tsc"
+  },
   "dependencies": {
-    "@octokit/rest": "^20.0.1"
+    "@octokit/rest": "^20.0.1",
+    "@vercel/ncc": "^0.36.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dusan-trickovic/automation-tests.git"
+  },
+  "author": "Dusan Trickovic",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dusan-trickovic/automation-tests/issues"
+  },
+  "homepage": "https://github.com/dusan-trickovic/automation-tests#readme",
+  "devDependencies": {
+    "typescript": "^5.1.6"
   }
 }
