@@ -9,8 +9,8 @@ import { Octokit } from "@octokit/rest";
 
 dotenv.config();
 
-async function fetchJsonData(x: string) {
-    const response = await fetch(x);
+async function fetchJsonData(url: string) {
+    const response = await fetch(url);
     const data = await response.json();
     const currentYear = new Date().getFullYear();
 
@@ -21,9 +21,9 @@ async function fetchJsonData(x: string) {
     return filteredData;
 }
 
-async function fetchLocalJsonData(x: string) {
+async function fetchLocalJsonData(path: string) {
     let data = '';
-    for(const line of fs.readFileSync(x, 'utf-8').split('\n')) {
+    for(const line of fs.readFileSync(path, 'utf-8').split('\n')) {
         data += line;
     }
     let finalData = JSON.parse(data);
@@ -62,9 +62,9 @@ async function main() {
 
             const createIssue = await octokit.issues.create({
                 owner: "dusan-trickovic",
-                repo: "automation-tests",
+                repo:  "automation-tests",
                 title: "[AUTOMATIC MESSAGE] Python version " + testVersion[0].latest + " is no longer supported",
-                body: "The support for Python version " + testVersion[0].latest + " has ended on " + testVersion[0].eol + ". Please consider upgrading to a newer version of Python."
+                body:  "The support for Python version " + testVersion[0].latest + " has ended on " + testVersion[0].eol + ". Please consider upgrading to a newer version of Python."
             });
             return createIssue;
 
