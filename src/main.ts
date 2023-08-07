@@ -48,7 +48,7 @@ function isMoreThanSixMonthsApart(givenDate: Date): boolean {
 
 
 const octokit = new Octokit({ 
-    auth: `${token}`,
+    auth: `${process.env.PERSONAL_ACCESS_TOKEN}`,
 });
 
 export async function fetchJsonData(url: string, toolName: null | "Go" = null) {
