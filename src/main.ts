@@ -109,18 +109,14 @@ async function checkToolVersion(
 ) {
     const toolVersionsFromApi = toolName === "Go" ? await fetchJsonData(apiEndpoint, "Go") : await fetchJsonData(apiEndpoint);
     const latestFromManifest = await getVersionsManifestFromRepo(manifestRepoData, toolVersionsFromApi[0].latest);
-
-    
     const earliestVersionInManifest = latestFromManifest[0].version;
 
     if (!semver.gte(toolVersionsFromApi[0].latest, earliestVersionInManifest)) {
         core.info(`The latest version of ${toolName} does not match the one in the manifest. Exiting the program...\n`);
         return;
     }
-    
 
     core.info(`The latest version of ${toolName} matches the one in the manifest. Checking the EOL support date...\n`);
-
     
     if (isMoreThanSixMonthsApart(new Date(toolVersionsFromApi[0].eol))) {
         core.info("The version has more than 6 months left before EOL. It will reach its EOL date on " + toolVersionsFromApi[0].eol + "\n");
@@ -131,14 +127,18 @@ async function checkToolVersion(
 
         core.warning(` The version ${toolVersionsFromApi[0].latest} has less than 6 months left before EOL. It will reach its EOL date on ${toolVersionsFromApi[0].eol} `);
             
+
+        
         try {
         
             core.info(`Creating an issue for ${toolName} version ${toolVersionsFromApi[0].latest}...\n`);
             await octokit.issues.create({
                 owner: basicRepoData.owner,
                 repo:  basicRepoData.repo,
-                title: `[AUTOMATIC MESSAGE] ${toolName} version ${toolVersionsFromApi[0].latest} is losing support on ${toolVersionsFromApi[0].eol}`,
-                body:  `The support for ${toolName} version ${toolVersionsFromApi[0].latest} is ending on ${toolVersionsFromApi[0].eol}. Please consider upgrading to a newer version of ${toolName}.`,
+                title: `[AUTOMATIC MESSAGE] ${toolName} version \`${toolVersionsFromApi[0].latest}\` is losing support on ${toolVersionsFromApi[0].eol}`,
+                body:  `Hello :wave: 
+                        The support for ${toolName} version \`${toolVersionsFromApi[0].latest}\` is ending on ${toolVersionsFromApi[0].eol}. Please consider upgrading to a newer version of ${toolName}.`,
+                labels: ['deprecation-notice'],
             });
 
             const successMessage = `Successfully created an issue for ${toolName} version ${toolVersionsFromApi[0].latest}.\n`;
