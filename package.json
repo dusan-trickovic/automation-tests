@@ -5,6 +5,7 @@
   "scripts": {
     "test": "echo 'Test'",
     "build": "ncc build -o dist/index.js src/main.ts",
+    "start": "node dist/index.js",
     "tsc": "tsc"
   },
   "dependencies": {
