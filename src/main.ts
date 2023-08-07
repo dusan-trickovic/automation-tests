@@ -44,8 +44,6 @@ function isMoreThanSixMonthsApart(givenDate: Date): boolean {
     }
   }
 
-
-
 const octokit = new Octokit({ 
     auth: `${process.env.PERSONAL_ACCESS_TOKEN}`,
     request: {
@@ -78,14 +76,7 @@ export async function fetchJsonData(url: string, toolName: null | "Go" = null) {
 }
 
 async function getVersionsManifestFromRepo(manifestRepoData: IManifestRepoData, referenceVersion: string) {
-    try {
-        const octokit = new Octokit({ 
-            auth: `${process.env.PERSONAL_ACCESS_TOKEN}`,
-            request: {
-                fetch: fetch,
-            },
-        });
-
+    try {   
         const response = await octokit.repos.getContent({
         owner: manifestRepoData.owner,
         repo:  manifestRepoData.repo,
@@ -107,7 +98,7 @@ async function getVersionsManifestFromRepo(manifestRepoData: IManifestRepoData, 
     }
 }
 
-// Function below applicable only for Node.js and Python
+
 async function checkToolVersion(
     toolName: "Node" | "Python" | "Go",
     apiEndpoint: string,
@@ -115,7 +106,7 @@ async function checkToolVersion(
     basicRepoData: IBasicRepoData,
 ) {
     const toolVersionsFromApi = toolName === "Go" ? await fetchJsonData(apiEndpoint, "Go") : await fetchJsonData(apiEndpoint);
-    console.log(toolVersionsFromApi[0].latest);
+    core.info(`${toolName} version: ${toolVersionsFromApi[0].latest}`);
     const latestFromManifest = await getVersionsManifestFromRepo(manifestRepoData, toolVersionsFromApi[0].latest);
     const earliestVersionInManifest = latestFromManifest[0].version;
 
@@ -127,15 +118,13 @@ async function checkToolVersion(
     core.info(`The latest version of ${toolName} matches the one in the manifest. Checking the EOL support date...\n`);
     
     if (isMoreThanSixMonthsApart(new Date(toolVersionsFromApi[0].eol))) {
-        core.info("The version has more than 6 months left before EOL. It will reach its EOL date on " + toolVersionsFromApi[0].eol + "\n");
+        core.info(`The version ${toolVersionsFromApi[0].latest} has more than 6 months left before EOL. It will reach its EOL date on ${toolVersionsFromApi[0].eol} \n`);
         return;
     }
 
     if (isMoreThanSixMonthsApart(new Date(toolVersionsFromApi[0].eol)) === false && compareDates(toolVersionsFromApi[0].eol)) {
 
         core.warning(` The version ${toolVersionsFromApi[0].latest} has less than 6 months left before EOL. It will reach its EOL date on ${toolVersionsFromApi[0].eol} `);
-            
-
         
         try {
         
@@ -191,6 +180,7 @@ async function main() {
     }
 
     // Modify the owner and repo values to test the action on a different repo.
+    // Also make sure to generate a new PAT for the workflow to work properly.
     const testBasicRepoData = {
         owner: 'dusan-trickovic',
         repo: 'automation-tests'
