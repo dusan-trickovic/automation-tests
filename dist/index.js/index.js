@@ -14573,6 +14573,9 @@ function isMoreThanSixMonthsApart(givenDate) {
 }
 const octokit = new rest_1.Octokit({
     auth: `${process.env.PERSONAL_ACCESS_TOKEN}`,
+    request: {
+        fetch: node_fetch_1.default,
+    },
 });
 function fetchJsonData(url, toolName = null) {
     return __awaiter(this, void 0, void 0, function* () {
