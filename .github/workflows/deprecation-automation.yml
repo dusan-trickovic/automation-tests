@@ -18,7 +18,7 @@ jobs:
           with:
             node-version: 16.x
             cache: 'npm'
-            
+
         - name: Install Dependencies
           run: npm ci
 
@@ -28,4 +28,4 @@ jobs:
         - name: Run Deprecation Script
           run: npm run start
           env:
-            PERSONAL_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
