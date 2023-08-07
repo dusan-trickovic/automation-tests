@@ -14696,23 +14696,6 @@ function main() {
     });
 }
 main();
-// async function test() {
-//     const testGoManifestRepoData = {
-//         owner: 'actions',
-//         repo: 'go-versions',
-//         path: 'versions-manifest.json'
-//     }
-//     const testBasicRepoData = {
-//         owner: 'dusan-trickovic',
-//         repo: 'automation-tests'
-//     }
-//     // await checkPythonAndNode('Go', 'https://endoflife.date/api/go.json', testGoManifestRepoData, testBasicRepoData );
-//     const data = await fetchGoJsonData();
-//     const manifestData = await getVersionsManifestFromRepo(testGoManifestRepoData, data[0].latest);
-//     console.log(data);
-//     console.log(manifestData);
-// }
-// test();
 
 
 /***/ }),
