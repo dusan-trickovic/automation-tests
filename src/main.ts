@@ -2,6 +2,7 @@ import * as core from "@actions/core";
 import * as semver from "semver";
 import dotenv from "dotenv";
 import { Octokit } from "@octokit/rest";
+import fetch from "node-fetch";
 
 
 interface GithubFileContent {
@@ -52,7 +53,7 @@ const octokit = new Octokit({
 export async function fetchJsonData(url: string, toolName: null | "Go" = null) {
     try {
         const response = await fetch(url);
-        const data = await response.json();
+        const data: any = await response.json();
         let filteredData;
 
         if (toolName === "Go") {
