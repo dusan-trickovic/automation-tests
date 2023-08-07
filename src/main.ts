@@ -77,7 +77,10 @@ export async function fetchJsonData(url: string, toolName: null | "Go" = null) {
 async function getVersionsManifestFromRepo(manifestRepoData: IManifestRepoData, referenceVersion: string) {
     try {
         const octokit = new Octokit({ 
-            auth: `${process.env.PERSONAL_ACCESS_TOKEN}`
+            auth: `${process.env.PERSONAL_ACCESS_TOKEN}`,
+            request: {
+                fetch: fetch,
+            },
         });
 
         const response = await octokit.repos.getContent({

@@ -14603,7 +14603,10 @@ function getVersionsManifestFromRepo(manifestRepoData, referenceVersion) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const octokit = new rest_1.Octokit({
-                auth: `${process.env.PERSONAL_ACCESS_TOKEN}`
+                auth: `${process.env.PERSONAL_ACCESS_TOKEN}`,
+                request: {
+                    fetch: node_fetch_1.default,
+                },
             });
             const response = yield octokit.repos.getContent({
                 owner: manifestRepoData.owner,
