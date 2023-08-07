@@ -10305,7 +10305,6 @@ const semver = __importStar(__nccwpck_require__(1383));
 const dotenv_1 = __importDefault(__nccwpck_require__(2437));
 const rest_1 = __nccwpck_require__(5375);
 dotenv_1.default.config();
-const token = core.getInput("github-token");
 function compareDates(date) {
     try {
         const currentDate = new Date().toISOString().split('T')[0];
@@ -10387,6 +10386,7 @@ function getVersionsManifestFromRepo(manifestRepoData, referenceVersion) {
 function checkToolVersion(toolName, apiEndpoint, manifestRepoData, basicRepoData) {
     return __awaiter(this, void 0, void 0, function* () {
         const toolVersionsFromApi = toolName === "Go" ? yield fetchJsonData(apiEndpoint, "Go") : yield fetchJsonData(apiEndpoint);
+        console.log(toolVersionsFromApi[0].latest);
         const latestFromManifest = yield getVersionsManifestFromRepo(manifestRepoData, toolVersionsFromApi[0].latest);
         const earliestVersionInManifest = latestFromManifest[0].version;
         if (!semver.gte(toolVersionsFromApi[0].latest, earliestVersionInManifest)) {

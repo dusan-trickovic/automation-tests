@@ -20,8 +20,6 @@ interface IManifestRepoData extends IBasicRepoData {
 
 dotenv.config();
 
-const token = core.getInput("github-token");
-
 function compareDates(date: string): boolean {
     try {
         const currentDate = new Date().toISOString().split('T')[0];
@@ -110,6 +108,7 @@ async function checkToolVersion(
     basicRepoData: IBasicRepoData,
 ) {
     const toolVersionsFromApi = toolName === "Go" ? await fetchJsonData(apiEndpoint, "Go") : await fetchJsonData(apiEndpoint);
+    console.log(toolVersionsFromApi[0].latest);
     const latestFromManifest = await getVersionsManifestFromRepo(manifestRepoData, toolVersionsFromApi[0].latest);
     const earliestVersionInManifest = latestFromManifest[0].version;
 
