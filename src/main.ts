@@ -20,6 +20,8 @@ interface IManifestRepoData extends IBasicRepoData {
 
 dotenv.config();
 
+const token = core.getInput("github-token");
+
 function compareDates(date: string): boolean {
     try {
         const currentDate = new Date().toISOString().split('T')[0];
@@ -46,7 +48,7 @@ function isMoreThanSixMonthsApart(givenDate: Date): boolean {
 
 
 const octokit = new Octokit({ 
-    auth: `${process.env.PERSONAL_ACCESS_TOKEN}`,
+    auth: `${token}`,
 });
 
 export async function fetchJsonData(url: string, toolName: null | "Go" = null) {

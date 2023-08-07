@@ -10305,6 +10305,7 @@ const semver = __importStar(__nccwpck_require__(1383));
 const dotenv_1 = __importDefault(__nccwpck_require__(2437));
 const rest_1 = __nccwpck_require__(5375);
 dotenv_1.default.config();
+const token = core.getInput("github-token");
 function compareDates(date) {
     try {
         const currentDate = new Date().toISOString().split('T')[0];
@@ -10329,7 +10330,7 @@ function isMoreThanSixMonthsApart(givenDate) {
     }
 }
 const octokit = new rest_1.Octokit({
-    auth: `${process.env.PERSONAL_ACCESS_TOKEN}`,
+    auth: `${token}`,
 });
 function fetchJsonData(url, toolName = null) {
     return __awaiter(this, void 0, void 0, function* () {
