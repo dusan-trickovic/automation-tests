@@ -105,6 +105,7 @@ async function checkToolVersion(
     manifestRepoData: IManifestRepoData,
     basicRepoData: IBasicRepoData,
 ) {
+    const { owner, repo } = basicRepoData;
     const toolVersionsFromApi = toolName === "Go" ? await fetchJsonData(apiEndpoint, "Go") : await fetchJsonData(apiEndpoint);
     core.info(`${toolName} version: ${toolVersionsFromApi[0].latest}`);
     const latestFromManifest = await getVersionsManifestFromRepo(manifestRepoData, toolVersionsFromApi[0].latest);
@@ -130,8 +131,8 @@ async function checkToolVersion(
         
             core.info(`Creating an issue for ${toolName} version ${toolVersionsFromApi[0].latest}...\n`);
             await octokit.issues.create({
-                owner: basicRepoData.owner,
-                repo:  basicRepoData.repo,
+                owner,
+                repo,
                 title: `[AUTOMATIC MESSAGE] ${toolName} version \`${toolVersionsFromApi[0].latest}\` is losing support on ${toolVersionsFromApi[0].eol}`,
                 body:  `Hello :wave: 
                         The support for ${toolName} version \`${toolVersionsFromApi[0].latest}\` is ending on ${toolVersionsFromApi[0].eol}. Please consider upgrading to a newer version of ${toolName}.`,
