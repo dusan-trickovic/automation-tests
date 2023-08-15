@@ -14642,11 +14642,12 @@ function checkToolVersion(toolName, apiEndpoint, manifestRepoData, basicRepoData
         }
         if (isMoreThanSixMonthsApart(new Date(toolVersionsFromApi[0].eol)) === false && compareDates(toolVersionsFromApi[0].eol)) {
             core.warning(` The version ${toolVersionsFromApi[0].latest} has less than 6 months left before EOL. It will reach its EOL date on ${toolVersionsFromApi[0].eol} `);
+            const { repo, owner } = basicRepoData;
             try {
                 core.info(`Creating an issue for ${toolName} version ${toolVersionsFromApi[0].latest}...\n`);
                 yield octokit.issues.create({
-                    owner: basicRepoData.owner,
-                    repo: basicRepoData.repo,
+                    owner,
+                    repo,
                     title: `[AUTOMATIC MESSAGE] ${toolName} version \`${toolVersionsFromApi[0].latest}\` is losing support on ${toolVersionsFromApi[0].eol}`,
                     body: `Hello :wave: 
                         The support for ${toolName} version \`${toolVersionsFromApi[0].latest}\` is ending on ${toolVersionsFromApi[0].eol}. Please consider upgrading to a newer version of ${toolName}.`,
