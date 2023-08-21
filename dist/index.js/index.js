@@ -14541,35 +14541,68 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.fetchJsonData = void 0;
+exports.filterApiData = exports.fetchJsonData = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const semver = __importStar(__nccwpck_require__(1383));
-const dotenv_1 = __importDefault(__nccwpck_require__(2437));
+const dotenv = __importStar(__nccwpck_require__(2437));
 const rest_1 = __nccwpck_require__(5375);
 const node_fetch_1 = __importDefault(__nccwpck_require__(4429));
-dotenv_1.default.config();
+function main() {
+    return __awaiter(this, void 0, void 0, function* () {
+        const NODE_API_ENDPOINT = 'https://endoflife.date/api/node.json';
+        const PYTHON_API_ENDPOINT = 'https://endoflife.date/api/python.json';
+        // UNCOMMENT THE LINE BELOW WHEN THE LOGIC FOR GO IS READY
+        // const GO_API_ENDPOINT = 'https://endoflife.date/api/go.json';
+        const testNodeManifestRepoData = {
+            owner: 'actions',
+            repo: 'node-versions',
+            path: 'versions-manifest.json'
+        };
+        const testPythonManifestRepoData = {
+            owner: 'actions',
+            repo: 'python-versions',
+            path: 'versions-manifest.json'
+        };
+        // UNCOMMENT THE LINE BELOW WHEN THE LOGIC FOR GO IS READY
+        // const testGoManifestRepoData = {
+        //     owner: 'actions',
+        //     repo: 'go-versions',
+        //     path: 'versions-manifest.json'
+        // }
+        // Modify the owner and repo values to test the action on a different repo.
+        // Also make sure to generate a new PAT for the workflow to work properly.
+        const testBasicRepoData = {
+            owner: 'dusan-trickovic',
+            repo: 'automation-tests'
+        };
+        try {
+            yield checkNodeAndPythonVersions(ToolName.Node, NODE_API_ENDPOINT, testNodeManifestRepoData, testBasicRepoData);
+            yield checkNodeAndPythonVersions(ToolName.Python, PYTHON_API_ENDPOINT, testPythonManifestRepoData, testBasicRepoData);
+            // UNCOMMENT THE LINE BELOW WHEN THE LOGIC FOR GO IS READY
+            // await checkToolVersion(ToolName.Go, GO_API_ENDPOINT, testGoManifestRepoData, testBasicRepoData);
+        }
+        catch (error) {
+            core.setFailed(error.message);
+        }
+    });
+}
+var ToolName;
+(function (ToolName) {
+    ToolName["Node"] = "Node";
+    ToolName["Python"] = "Python";
+    ToolName["Go"] = "Go";
+})(ToolName || (ToolName = {}));
+dotenv.config();
 function compareDates(date) {
-    try {
-        const currentDate = new Date().toISOString().split('T')[0];
-        return date >= currentDate;
-    }
-    catch (error) {
-        core.setFailed(error.message);
-        return false;
-    }
+    const currentDate = new Date().toISOString().split('T')[0];
+    return date >= currentDate;
 }
 function isMoreThanSixMonthsApart(givenDate) {
-    try {
-        const currentDate = new Date();
-        const timeDifferenceMs = givenDate.getTime() - currentDate.getTime();
-        const monthsDifference = Math.floor(timeDifferenceMs / (1000 * 60 * 60 * 24 * 30));
-        const yearsDifference = Math.floor(monthsDifference / 12);
-        return yearsDifference > 0 || monthsDifference > 6;
-    }
-    catch (error) {
-        core.setFailed(error.message);
-        return false;
-    }
+    const currentDate = new Date();
+    const timeDifferenceMs = givenDate.getTime() - currentDate.getTime();
+    const monthsDifference = Math.floor(timeDifferenceMs / (1000 * 60 * 60 * 24 * 30));
+    const yearsDifference = Math.floor(monthsDifference / 12);
+    return yearsDifference > 0 || monthsDifference > 6;
 }
 const octokit = new rest_1.Octokit({
     auth: `${process.env.PERSONAL_ACCESS_TOKEN}`,
@@ -14577,31 +14610,31 @@ const octokit = new rest_1.Octokit({
         fetch: node_fetch_1.default,
     },
 });
-function fetchJsonData(url, toolName = null) {
+function fetchJsonData(url) {
     return __awaiter(this, void 0, void 0, function* () {
-        try {
-            const response = yield (0, node_fetch_1.default)(url);
-            const data = yield response.json();
-            let filteredData;
-            if (toolName === "Go") {
-                filteredData = data.filter((item) => {
-                    return item.eol !== false;
-                });
-                return filteredData;
-            }
-            filteredData = data.filter((item) => {
-                const eolDate = new Date(item.eol);
-                return compareDates(eolDate.toISOString().split('T')[0]);
-            }).reverse();
-            return filteredData;
-        }
-        catch (error) {
-            core.setFailed(error.message);
-            return [];
-        }
+        const response = yield (0, node_fetch_1.default)(url);
+        const data = yield response.json();
+        return data;
     });
 }
 exports.fetchJsonData = fetchJsonData;
+function filterApiData(data, toolName = null) {
+    return __awaiter(this, void 0, void 0, function* () {
+        let filteredData;
+        if (toolName === "Go") {
+            filteredData = data.filter((item) => {
+                return item.eol !== false;
+            });
+            return filteredData;
+        }
+        filteredData = data.filter((item) => {
+            const eolDate = new Date(item.eol);
+            return compareDates(eolDate.toISOString().split('T')[0]);
+        }).reverse();
+        return filteredData;
+    });
+}
+exports.filterApiData = filterApiData;
 function getVersionsManifestFromRepo(manifestRepoData, referenceVersion) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
@@ -14625,75 +14658,65 @@ function getVersionsManifestFromRepo(manifestRepoData, referenceVersion) {
         }
     });
 }
-function checkToolVersion(toolName, apiEndpoint, manifestRepoData, basicRepoData) {
+function createIssueOnInternalRepo(toolName, earliestVersionFromApi, basicRepoData, issueContent) {
     return __awaiter(this, void 0, void 0, function* () {
         const { owner, repo } = basicRepoData;
-        const toolVersionsFromApi = toolName === "Go" ? yield fetchJsonData(apiEndpoint, "Go") : yield fetchJsonData(apiEndpoint);
-        core.info(`${toolName} version: ${toolVersionsFromApi[0].latest}`);
-        const latestFromManifest = yield getVersionsManifestFromRepo(manifestRepoData, toolVersionsFromApi[0].latest);
-        const earliestVersionInManifest = latestFromManifest[0].version;
-        if (!semver.gte(toolVersionsFromApi[0].latest, earliestVersionInManifest)) {
-            core.info(`The latest version of ${toolName} does not match the one in the manifest. Exiting the program...\n`);
+        const { title, body, labels } = issueContent;
+        core.warning(`Creating an issue in the ${owner}/${repo} repo...\n`);
+        try {
+            yield octokit.issues.create({
+                owner,
+                repo,
+                title,
+                body,
+                labels
+            });
+            const successMessage = `Successfully created an issue for ${toolName} version ${earliestVersionFromApi}.\n`;
+            core.info(successMessage);
             return;
         }
-        core.info(`The latest version of ${toolName} matches the one in the manifest. Checking the EOL support date...\n`);
-        if (isMoreThanSixMonthsApart(new Date(toolVersionsFromApi[0].eol))) {
-            core.info(`The version ${toolVersionsFromApi[0].latest} has more than 6 months left before EOL. It will reach its EOL date on ${toolVersionsFromApi[0].eol} \n`);
-            return;
+        catch (error) {
+            const errorMessage = error.message;
+            core.setFailed("Error while creating an issue: " + errorMessage);
         }
-        if (isMoreThanSixMonthsApart(new Date(toolVersionsFromApi[0].eol)) === false && compareDates(toolVersionsFromApi[0].eol)) {
-            core.warning(` The version ${toolVersionsFromApi[0].latest} has less than 6 months left before EOL. It will reach its EOL date on ${toolVersionsFromApi[0].eol} `);
-            try {
-                core.info(`Creating an issue for ${toolName} version ${toolVersionsFromApi[0].latest}...\n`);
-                yield octokit.issues.create({
-                    owner,
-                    repo,
-                    title: `[AUTOMATIC MESSAGE] ${toolName} version \`${toolVersionsFromApi[0].latest}\` is losing support on ${toolVersionsFromApi[0].eol}`,
-                    body: `Hello :wave: 
-                        The support for ${toolName} version \`${toolVersionsFromApi[0].latest}\` is ending on ${toolVersionsFromApi[0].eol}. Please consider upgrading to a newer version of ${toolName}.`,
-                    labels: ['deprecation-notice'],
-                });
-                const successMessage = `Successfully created an issue for ${toolName} version ${toolVersionsFromApi[0].latest}.\n`;
-                core.info(successMessage);
-                return successMessage;
-            }
-            catch (error) {
-                const errorMessage = error.message;
-                core.setFailed("Error while creating an issue: " + errorMessage);
-            }
-        }
-        core.setFailed(" The version " + toolVersionsFromApi[0].latest + " is no longer supported. It has reached its EOL date on " + toolVersionsFromApi[0].eol + ".");
     });
 }
-function main() {
+function checkNodeAndPythonVersions(toolName, apiEndpoint, manifestRepoData, basicRepoData) {
     return __awaiter(this, void 0, void 0, function* () {
-        const nodeApiPoint = 'https://endoflife.date/api/node.json';
-        const pythonApiPoint = 'https://endoflife.date/api/python.json';
-        const goApiPoint = 'https://endoflife.date/api/go.json';
-        const testNodeManifestRepoData = {
-            owner: 'actions',
-            repo: 'node-versions',
-            path: 'versions-manifest.json'
-        };
-        const testPythonManifestRepoData = {
-            owner: 'actions',
-            repo: 'python-versions',
-            path: 'versions-manifest.json'
-        };
-        const testGoManifestRepoData = {
-            owner: 'actions',
-            repo: 'go-versions',
-            path: 'versions-manifest.json'
-        };
-        // Modify the owner and repo values to test the action on a different repo.
-        // Also make sure to generate a new PAT for the workflow to work properly.
-        const testBasicRepoData = {
-            owner: 'dusan-trickovic',
-            repo: 'automation-tests'
-        };
-        yield checkToolVersion('Node', nodeApiPoint, testNodeManifestRepoData, testBasicRepoData);
-        yield checkToolVersion('Python', pythonApiPoint, testPythonManifestRepoData, testBasicRepoData);
-        yield checkToolVersion('Go', goApiPoint, testGoManifestRepoData, testBasicRepoData);
+        const toolVersionsFromApi = yield fetchJsonData(apiEndpoint);
+        const filteredToolVersionsFromApi = yield filterApiData(toolVersionsFromApi);
+        const earliestVersionFromApi = filteredToolVersionsFromApi[0].latest;
+        core.info(`\n ${toolName} version: ${earliestVersionFromApi}`);
+        const latestFromManifest = yield getVersionsManifestFromRepo(manifestRepoData, earliestVersionFromApi);
+        const earliestVersionInManifest = latestFromManifest[0].version;
+        if (!semver.gte(earliestVersionFromApi, earliestVersionInManifest)) {
+            core.info(`The earliest version of ${toolName} does not match the one in the manifest.\n`);
+            core.warning(`The earliest version of ${toolName} is ${earliestVersionFromApi} and the one in the manifest is ${earliestVersionInManifest}.`);
+            const issueContent = {
+                title: `[AUTOMATIC MESSAGE] ${toolName} version \`${earliestVersionFromApi}\` is not in the manifest`,
+                body: `Hello :wave:
+                    The earliest version of ${toolName} is \`${earliestVersionFromApi}\` and the one in the manifest is \`${earliestVersionInManifest}\`. Please consider updating the manifest.`,
+                labels: ['manifest-version-mismatch'],
+            };
+            createIssueOnInternalRepo(toolName, earliestVersionFromApi, basicRepoData, issueContent);
+        }
+        core.info(`The earliest version of ${toolName} matches the one in the manifest. Checking the EOL support date...\n`);
+        if (isMoreThanSixMonthsApart(new Date(filteredToolVersionsFromApi[0].eol))) {
+            core.info(`The version ${earliestVersionFromApi} has more than 6 months left before EOL. It will reach its EOL date on ${filteredToolVersionsFromApi[0].eol} \n`);
+            return;
+        }
+        if (isMoreThanSixMonthsApart(new Date(filteredToolVersionsFromApi[0].eol)) === false) {
+            const earliestVersionFromApiEol = filteredToolVersionsFromApi[0].eol;
+            const issueContent = {
+                title: `[AUTOMATIC MESSAGE] ${toolName} version \`${earliestVersionFromApi}\` is losing support on ${earliestVersionFromApiEol}`,
+                body: `Hello :wave: 
+                    The support for ${toolName} version \`${earliestVersionFromApi}\` is ending on ${earliestVersionFromApi}. Please consider upgrading to a newer version of ${toolName}.`,
+                labels: ['deprecation-notice'],
+            };
+            createIssueOnInternalRepo(toolName, earliestVersionFromApi, basicRepoData, issueContent);
+            return;
+        }
+        core.setFailed(" The version " + earliestVersionFromApi + " is no longer supported. It has reached its EOL date on " + filteredToolVersionsFromApi[0].eol + ".");
     });
 }
 main();
