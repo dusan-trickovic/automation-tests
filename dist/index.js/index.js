@@ -14687,6 +14687,7 @@ function checkNodeAndPythonVersions(toolName, apiEndpoint, manifestRepoData, bas
         const filteredToolVersionsFromApi = yield filterApiData(toolVersionsFromApi);
         const earliestVersionFromApi = filteredToolVersionsFromApi[0].latest;
         core.info(`\n ${toolName} version: ${earliestVersionFromApi}`);
+        core.info(`For more info on ${toolName} versions, please visit: https://endoflife.date/${toolName === 'Node' ? 'nodejs' : 'python'}\n`);
         const latestFromManifest = yield getVersionsManifestFromRepo(manifestRepoData, earliestVersionFromApi);
         const earliestVersionInManifest = latestFromManifest[0].version;
         if (!semver.gte(earliestVersionFromApi, earliestVersionInManifest)) {
