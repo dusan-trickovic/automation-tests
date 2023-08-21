@@ -181,7 +181,7 @@ async function checkNodeAndPythonVersions(
     const earliestVersionFromApi = filteredToolVersionsFromApi[0].latest;
 
     core.info(`\n ${toolName} version: ${earliestVersionFromApi}`);
-    core.info(`For more info on ${toolName} versions, please visit: https://endoflife.date/${toolName === 'Node' ? 'nodejs' : 'python' }\n`);
+    core.info(` For more info on ${toolName} versions, please visit: https://endoflife.date/${toolName === 'Node' ? 'nodejs' : 'python' }\n`);
     const latestFromManifest = await getVersionsManifestFromRepo(manifestRepoData, earliestVersionFromApi);
     const earliestVersionInManifest = latestFromManifest[0].version;
 
@@ -193,9 +193,10 @@ async function checkNodeAndPythonVersions(
             body:  `Hello :wave:
                     The earliest version of ${toolName} is \`${earliestVersionFromApi}\` and the one in the manifest is \`${earliestVersionInManifest}\`. Please consider updating the manifest.`,
             labels: ['manifest-version-mismatch'],
-        }
+        };
 
         createIssueOnInternalRepo(toolName, earliestVersionFromApi, basicRepoData, issueContent);
+        return;
     }
 
     core.info(`The earliest version of ${toolName} matches the one in the manifest. Checking the EOL support date...\n`);
@@ -212,7 +213,8 @@ async function checkNodeAndPythonVersions(
             body:  `Hello :wave: 
                     The support for ${toolName} version \`${earliestVersionFromApi}\` is ending on ${earliestVersionFromApi}. Please consider upgrading to a newer version of ${toolName}.`,
             labels: ['deprecation-notice'],
-        }
+        };
+
         createIssueOnInternalRepo(toolName, earliestVersionFromApi, basicRepoData, issueContent);
         return;
     }
