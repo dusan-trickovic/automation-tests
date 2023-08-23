@@ -9,9 +9,7 @@ async function main() {
 
     const NODE_API_ENDPOINT = 'https://endoflife.date/api/node.json';
     const PYTHON_API_ENDPOINT = 'https://endoflife.date/api/python.json';
-
-    // UNCOMMENT THE LINE BELOW WHEN THE LOGIC FOR GO IS READY
-    // const GO_API_ENDPOINT = 'https://endoflife.date/api/go.json';
+    const GO_API_ENDPOINT = 'https://endoflife.date/api/go.json';
 
     const testNodeManifestRepoData = {
         owner: 'actions',
@@ -25,12 +23,11 @@ async function main() {
         path: 'versions-manifest.json'
     }
 
-    // UNCOMMENT THE LINE BELOW WHEN THE LOGIC FOR GO IS READY
-    // const testGoManifestRepoData = {
-    //     owner: 'actions',
-    //     repo: 'go-versions',
-    //     path: 'versions-manifest.json'
-    // }
+    const testGoManifestRepoData = {
+        owner: 'actions',
+        repo: 'go-versions',
+        path: 'versions-manifest.json'
+    }
 
     // Modify the owner and repo values to test the action on a different repo.
     // Also make sure to generate a new PAT for the workflow to work properly.
@@ -42,9 +39,7 @@ async function main() {
     try {
         await checkNodeAndPythonVersions(ToolName.Node, NODE_API_ENDPOINT, testNodeManifestRepoData, testBasicRepoData);
         await checkNodeAndPythonVersions(ToolName.Python, PYTHON_API_ENDPOINT, testPythonManifestRepoData, testBasicRepoData);
-        
-        // UNCOMMENT THE LINE BELOW WHEN THE LOGIC FOR GO IS READY
-        // await checkToolVersion(ToolName.Go, GO_API_ENDPOINT, testGoManifestRepoData, testBasicRepoData);
+        await checkGoVersion(GO_API_ENDPOINT, testGoManifestRepoData, testBasicRepoData);
     } catch (error) {
         core.setFailed((error as Error).message);
     }
@@ -73,9 +68,15 @@ enum ToolName {
 
 dotenv.config();
 
-function compareDates(date: string): boolean {
+function compareDateToCurrent(date: string): boolean {
     const currentDate = new Date().toISOString().split('T')[0];
     return date >= currentDate;
+}
+
+// Function used for Go versions only
+function calculateSixMonthsFromGivenDate(givenDate: Date): string {
+    const sixMonthsFromGivenDate = new Date(givenDate.setMonth(givenDate.getMonth() + 6));
+    return sixMonthsFromGivenDate.toISOString().split('T')[0];
 }
 
 function isMoreThanSixMonthsApart(givenDate: Date): boolean {
@@ -109,7 +110,7 @@ export async function filterApiData(data: any[], toolName: null | "Go" = null) {
     }
     filteredData = data.filter((item: any) => {
         const eolDate = new Date(item.eol);
-        return compareDates(eolDate.toISOString().split('T')[0]);
+        return compareDateToCurrent(eolDate.toISOString().split('T')[0]);
     }).reverse();
 
     return filteredData;
@@ -170,8 +171,63 @@ async function createIssueOnInternalRepo(
         }
 }
 
+async function checkGoVersion(
+    apiEndpoint: string = 'https://endoflife.date/api/go.json',
+    manifestRepoData: IManifestRepoData,
+    basicRepoData: IBasicRepoData,
+) {
+    const goVersionsFromApi = await fetchJsonData(apiEndpoint);
+    const firstTwoVersionsFromApi = goVersionsFromApi.slice(0, 2);
+    const reversedFirstTwoVersions = firstTwoVersionsFromApi.reverse();
+    const earliestVersionFromApi = reversedFirstTwoVersions[0].latest;
+    const goVersionsFromManifest = await getVersionsManifestFromRepo(manifestRepoData, reversedFirstTwoVersions[0].latest);
+    const latestFromManifest = goVersionsFromManifest[0].version;
+
+    core.info(`\n ${ToolName.Go} version: ${earliestVersionFromApi}`);
+    core.info(` For more info on ${ToolName.Go} versions, please visit: https://endoflife.date/go \n`);
+    
+    if (!semver.gte(reversedFirstTwoVersions[0].latest, latestFromManifest)) {
+        core.info(`The latest version of Go does not match the one in the manifest.\n`);
+        core.warning(`The latest version of Go is ${reversedFirstTwoVersions[0].latest} and the one in the manifest is ${latestFromManifest}.`);
+        const issueContent = {
+            title: `[AUTOMATIC MESSAGE] Go version \`${reversedFirstTwoVersions[0].latest}\` is not in the manifest`,
+            body:  `Hello :wave:
+                    The latest version of Go is \`${reversedFirstTwoVersions[0].latest}\` and the one in the manifest is \`${latestFromManifest}\`. Please consider updating the manifest.`,
+            labels: ['manifest-version-mismatch'],
+        };
+
+        createIssueOnInternalRepo(ToolName.Go, reversedFirstTwoVersions[0].latest, basicRepoData, issueContent);
+        return;
+    }
+
+    core.info(`The latest version of Go matches the one in the manifest. Checking the EOL support date...\n`);
+
+    const sixMonthsFromEarliestVersion = calculateSixMonthsFromGivenDate(new Date(reversedFirstTwoVersions[0].latestReleaseDate));
+
+    if (isMoreThanSixMonthsApart(new Date(sixMonthsFromEarliestVersion))) {
+        core.info(`The version ${reversedFirstTwoVersions[0].latest} has more than 6 months left before EOL. It will reach its EOL date on ${reversedFirstTwoVersions[0].eol} \n`);
+        return;
+    }
+
+    if (isMoreThanSixMonthsApart(new Date(sixMonthsFromEarliestVersion)) === false) {
+        const issueContent = {
+            title: `[AUTOMATIC MESSAGE] Go version \`${reversedFirstTwoVersions[0].latest}\` is losing support soon!`,
+            body:  `Hello :wave: 
+                    The support for Go version \`${reversedFirstTwoVersions[0].latest}\` is ending in less than 6 months.
+                    Please consider upgrading to a newer version of Go.`,
+            labels: ['deprecation-notice'],
+        };
+
+        createIssueOnInternalRepo(ToolName.Go, reversedFirstTwoVersions[0].latest, basicRepoData, issueContent);
+        return;
+    }
+
+    core.setFailed(" The version " + reversedFirstTwoVersions[0].latest + " is no longer supported. It has reached its EOL date on " + reversedFirstTwoVersions[0].eol + ".");
+}
+
+
 async function checkNodeAndPythonVersions(
-    toolName: ToolName,
+    toolName: ToolName.Node | ToolName.Python,
     apiEndpoint: string,
     manifestRepoData: IManifestRepoData,
     basicRepoData: IBasicRepoData,
