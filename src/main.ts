@@ -1,7 +1,7 @@
 import * as core from "@actions/core";
 import * as semver from "semver";
-import { Octokit } from "@octokit/rest";
 import fetch from "node-fetch";
+import { Octokit } from "@octokit/rest";
 import { SlackMessage } from "./message";
 import { ACCESS_TOKEN } from "./config";
 
