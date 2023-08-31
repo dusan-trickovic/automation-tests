@@ -3,6 +3,7 @@ import * as semver from "semver";
 import * as dotenv from "dotenv";
 import { Octokit } from "@octokit/rest";
 import fetch from "node-fetch";
+import { SlackMessage } from "./message";
 
 
 async function main() {
@@ -59,7 +60,7 @@ interface IManifestRepoData extends IBasicRepoData {
     path: string;
 }
 
-enum ToolName {
+export enum ToolName {
     Node = "Node",
     Python = "Python",
     Go = "Go",
@@ -153,6 +154,7 @@ async function createIssueOnInternalRepo(
 ) {
     const { owner, repo } = basicRepoData;
     const { title, body, labels } = issueContent;
+    const slackMessage = new SlackMessage();
         core.warning(`Creating an issue in the ${owner}/${repo} repo...\n`);
         try {
             await octokit.issues.create({
@@ -162,6 +164,8 @@ async function createIssueOnInternalRepo(
                 body,
                 labels
             });
+            slackMessage.buildMessage(body);
+            await slackMessage.sendMessage();
             const successMessage = `Successfully created an issue for ${toolName} version ${earliestVersionFromApi}.\n`;
             core.info(successMessage);
             return;
@@ -213,8 +217,7 @@ async function checkGoVersion(
         const issueContent = {
             title: `[AUTOMATIC MESSAGE] Go version \`${reversedFirstTwoVersions[0].latest}\` is losing support soon!`,
             body:  `Hello :wave: 
-                    The support for Go version \`${reversedFirstTwoVersions[0].latest}\` is ending in less than 6 months.
-                    Please consider upgrading to a newer version of Go.`,
+                    The support for Go version \`${reversedFirstTwoVersions[0].latest}\` is ending in less than 6 months. Please consider upgrading to a newer version of Go.`,
             labels: ['deprecation-notice'],
         };
 
