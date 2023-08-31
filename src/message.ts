@@ -2,7 +2,6 @@ import * as core from '@actions/core';
 import { Message as MessageBuilder, Blocks } from 'slack-block-builder';
 import { IncomingWebhook } from '@slack/webhook';
 import { WEBHOOK_URL } from './config';
-import { ToolName } from './main';
 
 export abstract class Message {
     protected messageBody: any;
