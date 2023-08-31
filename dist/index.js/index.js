@@ -23904,10 +23904,11 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.WEBHOOK_URL = void 0;
+exports.ACCESS_TOKEN = exports.WEBHOOK_URL = void 0;
 const dotenv = __importStar(__nccwpck_require__(2437));
 dotenv.config();
 exports.WEBHOOK_URL = process.env['SLACK_WEBHOOK_URL'];
+exports.ACCESS_TOKEN = process.env['PERSONAL_ACCESS_TOKEN'];
 
 
 /***/ }),
@@ -23956,10 +23957,10 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.filterApiData = exports.fetchJsonData = exports.ToolName = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const semver = __importStar(__nccwpck_require__(1383));
-const dotenv = __importStar(__nccwpck_require__(2437));
 const rest_1 = __nccwpck_require__(5375);
 const node_fetch_1 = __importDefault(__nccwpck_require__(4429));
 const message_1 = __nccwpck_require__(7899);
+const config_1 = __nccwpck_require__(6373);
 function main() {
     return __awaiter(this, void 0, void 0, function* () {
         const NODE_API_ENDPOINT = 'https://endoflife.date/api/node.json';
@@ -24002,7 +24003,6 @@ var ToolName;
     ToolName["Python"] = "Python";
     ToolName["Go"] = "Go";
 })(ToolName || (exports.ToolName = ToolName = {}));
-dotenv.config();
 function compareDateToCurrent(date) {
     const currentDate = new Date().toISOString().split('T')[0];
     return date >= currentDate;
@@ -24020,7 +24020,7 @@ function isMoreThanSixMonthsApart(givenDate) {
     return yearsDifference > 0 || monthsDifference > 6;
 }
 const octokit = new rest_1.Octokit({
-    auth: `${process.env.PERSONAL_ACCESS_TOKEN}`,
+    auth: `${config_1.ACCESS_TOKEN}`,
     request: {
         fetch: node_fetch_1.default,
     },

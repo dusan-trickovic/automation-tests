@@ -1,9 +1,9 @@
 import * as core from "@actions/core";
 import * as semver from "semver";
-import * as dotenv from "dotenv";
 import { Octokit } from "@octokit/rest";
 import fetch from "node-fetch";
 import { SlackMessage } from "./message";
+import { ACCESS_TOKEN } from "./config";
 
 
 async function main() {
@@ -60,14 +60,17 @@ interface IManifestRepoData extends IBasicRepoData {
     path: string;
 }
 
+interface IIssueContent {
+    title: string;
+    body: string;
+    labels: string[];
+}
+
 export enum ToolName {
     Node = "Node",
     Python = "Python",
     Go = "Go",
 }
-
-
-dotenv.config();
 
 function compareDateToCurrent(date: string): boolean {
     const currentDate = new Date().toISOString().split('T')[0];
@@ -89,7 +92,7 @@ function isMoreThanSixMonthsApart(givenDate: Date): boolean {
   }
 
 const octokit = new Octokit({ 
-    auth: `${process.env.PERSONAL_ACCESS_TOKEN}`,
+    auth: `${ACCESS_TOKEN}`,
     request: {
         fetch: fetch,
     },
@@ -138,12 +141,6 @@ async function getVersionsManifestFromRepo(manifestRepoData: IManifestRepoData, 
         core.setFailed((error as Error).message);
         return [];
     }
-}
-
-interface IIssueContent {
-    title: string;
-    body: string;
-    labels: string[];
 }
 
 async function createIssueOnInternalRepo(
