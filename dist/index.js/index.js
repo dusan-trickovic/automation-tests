@@ -23988,9 +23988,12 @@ function main() {
             repo: 'automation-tests'
         };
         try {
-            yield checkNodeAndPythonVersions(ToolName.Node, NODE_API_ENDPOINT, testNodeManifestRepoData, testBasicRepoData);
-            yield checkNodeAndPythonVersions(ToolName.Python, PYTHON_API_ENDPOINT, testPythonManifestRepoData, testBasicRepoData);
-            yield checkGoVersion(GO_API_ENDPOINT, testGoManifestRepoData, testBasicRepoData);
+            const promises = [
+                checkNodeAndPythonVersions(ToolName.Node, NODE_API_ENDPOINT, testNodeManifestRepoData, testBasicRepoData),
+                checkNodeAndPythonVersions(ToolName.Python, PYTHON_API_ENDPOINT, testPythonManifestRepoData, testBasicRepoData),
+                checkGoVersion(GO_API_ENDPOINT, testGoManifestRepoData, testBasicRepoData),
+            ];
+            yield Promise.all(promises);
         }
         catch (error) {
             core.setFailed(error.message);
@@ -24077,7 +24080,7 @@ function createIssueOnInternalRepo(toolName, earliestVersionFromApi, basicRepoDa
     return __awaiter(this, void 0, void 0, function* () {
         const { owner, repo } = basicRepoData;
         const { title, body, labels } = issueContent;
-        const slackMessage = new message_1.SlackMessage();
+        const slackMessageBuilder = new message_1.SlackMessage();
         core.warning(`Creating an issue in the ${owner}/${repo} repo...\n`);
         try {
             yield octokit.issues.create({
@@ -24087,8 +24090,8 @@ function createIssueOnInternalRepo(toolName, earliestVersionFromApi, basicRepoDa
                 body,
                 labels
             });
-            slackMessage.buildMessage(body);
-            yield slackMessage.sendMessage();
+            slackMessageBuilder.buildMessage(body);
+            yield slackMessageBuilder.sendMessage();
             const successMessage = `Successfully created an issue for ${toolName} version ${earliestVersionFromApi}.\n`;
             core.info(successMessage);
             return;
@@ -24171,7 +24174,7 @@ function checkNodeAndPythonVersions(toolName, apiEndpoint, manifestRepoData, bas
             const issueContent = {
                 title: `[AUTOMATIC MESSAGE] ${toolName} version \`${earliestVersionFromApi}\` is losing support on ${earliestVersionFromApiEol}`,
                 body: `Hello :wave: 
-                    The support for ${toolName} version \`${earliestVersionFromApi}\` is ending on ${earliestVersionFromApi}. Please consider upgrading to a newer version of ${toolName}.`,
+                    The support for ${toolName} version \`${earliestVersionFromApi}\` is ending on ${earliestVersionFromApiEol}. Please consider upgrading to a newer version of ${toolName}.`,
                 labels: ['deprecation-notice'],
             };
             createIssueOnInternalRepo(toolName, earliestVersionFromApi, basicRepoData, issueContent);

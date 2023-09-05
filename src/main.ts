@@ -38,9 +38,13 @@ async function main() {
     }
 
     try {
-        await checkNodeAndPythonVersions(ToolName.Node, NODE_API_ENDPOINT, testNodeManifestRepoData, testBasicRepoData);
-        await checkNodeAndPythonVersions(ToolName.Python, PYTHON_API_ENDPOINT, testPythonManifestRepoData, testBasicRepoData);
-        await checkGoVersion(GO_API_ENDPOINT, testGoManifestRepoData, testBasicRepoData);
+        const promises = [
+            checkNodeAndPythonVersions(ToolName.Node, NODE_API_ENDPOINT, testNodeManifestRepoData, testBasicRepoData),
+            checkNodeAndPythonVersions(ToolName.Python, PYTHON_API_ENDPOINT, testPythonManifestRepoData, testBasicRepoData),
+            checkGoVersion(GO_API_ENDPOINT, testGoManifestRepoData, testBasicRepoData),
+        ];
+
+        await Promise.all(promises);
     } catch (error) {
         core.setFailed((error as Error).message);
     }
@@ -151,25 +155,25 @@ async function createIssueOnInternalRepo(
 ) {
     const { owner, repo } = basicRepoData;
     const { title, body, labels } = issueContent;
-    const slackMessage = new SlackMessage();
-        core.warning(`Creating an issue in the ${owner}/${repo} repo...\n`);
-        try {
-            await octokit.issues.create({
-                owner,
-                repo,
-                title,
-                body,
-                labels
-            });
-            slackMessage.buildMessage(body);
-            await slackMessage.sendMessage();
-            const successMessage = `Successfully created an issue for ${toolName} version ${earliestVersionFromApi}.\n`;
-            core.info(successMessage);
-            return;
-        } catch (error) {
-            const errorMessage = (error as Error).message;
-            core.setFailed("Error while creating an issue: " + errorMessage);
-        }
+    const slackMessageBuilder = new SlackMessage();
+    core.warning(`Creating an issue in the ${owner}/${repo} repo...\n`);
+    try {
+        await octokit.issues.create({
+            owner,
+            repo,
+            title,
+            body,
+            labels
+        });
+        slackMessageBuilder.buildMessage(body);
+        await slackMessageBuilder.sendMessage();
+        const successMessage = `Successfully created an issue for ${toolName} version ${earliestVersionFromApi}.\n`;
+        core.info(successMessage);
+        return;
+    } catch (error) {
+        const errorMessage = (error as Error).message;
+        core.setFailed("Error while creating an issue: " + errorMessage);
+    }
 }
 
 async function checkGoVersion(
@@ -178,7 +182,7 @@ async function checkGoVersion(
     basicRepoData: IBasicRepoData,
 ) {
     const goVersionsFromApi = await fetchJsonData(apiEndpoint);
-    const firstTwoVersionsFromApi = goVersionsFromApi.slice(0, 2);
+    const firstTwoVersionsFromApi =  goVersionsFromApi.slice(0, 2);
     const reversedFirstTwoVersions = firstTwoVersionsFromApi.reverse();
     const earliestVersionFromApi = reversedFirstTwoVersions[0].latest;
     const goVersionsFromManifest = await getVersionsManifestFromRepo(manifestRepoData, reversedFirstTwoVersions[0].latest);
@@ -267,7 +271,7 @@ async function checkNodeAndPythonVersions(
         const issueContent = {
             title: `[AUTOMATIC MESSAGE] ${toolName} version \`${earliestVersionFromApi}\` is losing support on ${earliestVersionFromApiEol}`,
             body:  `Hello :wave: 
-                    The support for ${toolName} version \`${earliestVersionFromApi}\` is ending on ${earliestVersionFromApi}. Please consider upgrading to a newer version of ${toolName}.`,
+                    The support for ${toolName} version \`${earliestVersionFromApi}\` is ending on ${earliestVersionFromApiEol}. Please consider upgrading to a newer version of ${toolName}.`,
             labels: ['deprecation-notice'],
         };
 
