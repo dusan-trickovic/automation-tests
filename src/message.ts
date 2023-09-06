@@ -19,7 +19,7 @@ export abstract class Message {
             month: 'long',
             day: 'numeric'
         };
-        const currentDate = new Date(Date.now()).toLocaleDateString('en-US', dateFormatOptions);
+        const currentDate = new Date(Date.now()).toLocaleDateString(dateFormatOptions);
 
         return `:warning: *New deprecation alert for ${currentDate}.*`;
     };
