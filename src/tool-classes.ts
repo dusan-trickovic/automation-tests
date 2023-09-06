@@ -43,7 +43,6 @@ abstract class Tool {
         core.info(` For more info on ${this.name} versions, please visit: https://endoflife.date/${this.name === 'Node' ? 'nodejs' : 'python' }\n`);
         
         const manifestData = await this.manifestRepository.getVersionsManifestFromRepo(earliestVersionFromApi);
-        // const latestFromManifest = await getVersionsManifestFromRepo(manifestRepoData, earliestVersionFromApi);
         const earliestVersionInManifest = manifestData[0].version;
     
         if (!semver.gte(earliestVersionFromApi, earliestVersionInManifest)) {

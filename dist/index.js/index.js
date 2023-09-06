@@ -20030,7 +20030,6 @@ class Tool {
             core.info(`\n ${this.name} version: ${earliestVersionFromApi}`);
             core.info(` For more info on ${this.name} versions, please visit: https://endoflife.date/${this.name === 'Node' ? 'nodejs' : 'python'}\n`);
             const manifestData = yield this.manifestRepository.getVersionsManifestFromRepo(earliestVersionFromApi);
-            // const latestFromManifest = await getVersionsManifestFromRepo(manifestRepoData, earliestVersionFromApi);
             const earliestVersionInManifest = manifestData[0].version;
             if (!semver.gte(earliestVersionFromApi, earliestVersionInManifest)) {
                 core.info(`The earliest version of ${this.name} does not match the one in the manifest.\n`);
