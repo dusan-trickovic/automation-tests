@@ -3,6 +3,7 @@ import * as semver from 'semver';
 import { ACCESS_TOKEN } from './config';
 import { Octokit } from '@octokit/rest';
 import { SlackMessage } from './message';
+import fetch from 'node-fetch';
 
 interface GithubFileContent {
     content: string;
@@ -62,7 +63,7 @@ export class GitHubIssue {
         baseRepository: BaseRepository,
         toolName: string,
         expiringToolVersion: string
-        ) {
+    ) {
         const slackMessageBuilder = new SlackMessage();
         try {
             await octokit.issues.create({
