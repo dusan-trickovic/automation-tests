@@ -1,6 +1,7 @@
 import * as semver from 'semver';
 import * as core from '@actions/core';
-import { calculateSixMonthsFromGivenDate, dateGteCurrentDate, isDateMoreThanSixMonthsApart } from "./utils";
+import dayjs from 'dayjs';
+import { dateGte, isDateMoreThanSixMonthsApart } from "./utils";
 import { BaseRepository, GitHubIssue, ManifestRepository } from './repository-classes';
 
 interface IResponseFormat {
@@ -10,11 +11,12 @@ interface IResponseFormat {
 }
 
 abstract class Tool {
-    protected name: string;
-    protected apiEndpoint: string;
-    protected manifestRepository: ManifestRepository;
-    protected internalRepository: BaseRepository = new BaseRepository('dusan-trickovic', 'automation-tests');
-    constructor(name: string, apiEndpoint: string, manifestRepository: ManifestRepository) {
+    constructor(
+        protected name: string, 
+        protected apiEndpoint: string, 
+        protected manifestRepository: ManifestRepository,
+        protected internalRepository: BaseRepository = new BaseRepository('dusan-trickovic', 'automation-tests')
+        ) {
         this.name = name;
         this.apiEndpoint = apiEndpoint;
         this.manifestRepository = manifestRepository;
@@ -29,7 +31,7 @@ abstract class Tool {
     protected async filterApiData(data: IResponseFormat[]) {
         const filteredData = data.filter((item: any) => {
             const eolDate = new Date(item.eol);
-            return dateGteCurrentDate(eolDate.toISOString().split('T')[0]);
+            return dateGte(eolDate, new Date());
         }).reverse();    
         return filteredData;
     }
@@ -46,8 +48,8 @@ abstract class Tool {
         const earliestVersionInManifest = manifestData[0].version;
     
         if (!semver.gte(earliestVersionFromApi, earliestVersionInManifest)) {
-            core.info(`The earliest version of ${this.name} does not match the one in the manifest.\n`);
-            core.warning(`The earliest version of ${this.name} is ${earliestVersionFromApi} and the one in the manifest is ${earliestVersionInManifest}.`);
+            core.info(`The version of ${this.name} (${earliestVersionFromApi}) provided by the API does not match the one in the manifest (${earliestVersionInManifest}).\n`);
+            core.warning(`The version of ${this.name} provided by the API is ${earliestVersionFromApi} and the one in the manifest is ${earliestVersionInManifest}.`);
             const issueContent = {
                 title: `[AUTOMATIC MESSAGE] ${this.name} version \`${earliestVersionFromApi}\` is not in the manifest`,
                 body:  `Hello :wave:
@@ -60,10 +62,10 @@ abstract class Tool {
             return;
         }
     
-        core.info(`The earliest version of ${this.name} (${earliestVersionFromApi}) matches the one in the manifest. Checking the EOL support date...\n`);
+        core.info(`The version of ${this.name} provided by the API (${earliestVersionFromApi}) matches the one in the manifest (${earliestVersionInManifest}). Checking the EOL support date...\n`);
     
         if (isDateMoreThanSixMonthsApart(new Date(filteredToolVersionsFromApi[0].eol))) {
-            core.info(`The version ${earliestVersionFromApi} has more than 6 months left before EOL. It will reach its EOL date on ${filteredToolVersionsFromApi[0].eol} \n`);
+            core.info(`${this.name} version ${earliestVersionFromApi} has more than 6 months left before EOL. It will reach its EOL date on ${filteredToolVersionsFromApi[0].eol} \n`);
             return;
         }
     
@@ -126,53 +128,54 @@ export class GoTool extends Tool {
         const goVersionsFromApi = await this.getVersionsFromApi(this.apiEndpoint);
         const firstTwoVersionsFromApi =  goVersionsFromApi.slice(0, 2);
         const reversedFirstTwoVersions = firstTwoVersionsFromApi.reverse();
-        const earliestVersionFromApi = reversedFirstTwoVersions[0].latest;
+        const earliestVersionFromApi = reversedFirstTwoVersions[0];
 
-        const goVersionsFromManifest = await this.manifestRepository.getVersionsManifestFromRepo(reversedFirstTwoVersions[0].latest);
-        const latestFromManifest = goVersionsFromManifest[0].version;
+        const goVersionsFromManifest = await this.manifestRepository.getVersionsManifestFromRepo(earliestVersionFromApi.latest);
+        const firstTwoVersionsFromManifest = goVersionsFromManifest.slice(0, 2);
+        const latestFromManifest = firstTwoVersionsFromManifest[0];
     
-        core.info(`\n ${this.name} version: ${earliestVersionFromApi}`);
+        core.info(`\n ${this.name} version: ${earliestVersionFromApi.latest}`);
         core.info(` For more info on ${this.name} versions, please visit: https://endoflife.date/go \n`);
         
-        if (!semver.gte(reversedFirstTwoVersions[0].latest, latestFromManifest)) {
-            core.info(`The latest version of Go does not match the one in the manifest.\n`);
-            core.warning(`The latest version of Go is ${reversedFirstTwoVersions[0].latest} and the one in the manifest is ${latestFromManifest}.`);
+        if (!semver.gte(earliestVersionFromApi.latest, latestFromManifest.version)) {
+            core.info(`The version of Go (${earliestVersionFromApi.latest}) from API does not match the one in the manifest (${latestFromManifest.version}).\n`);
+            core.warning(`The version of Go provided by the API is ${earliestVersionFromApi.latest} and the one in the manifest is ${latestFromManifest.version}.`);
             const issueContent = {
-                title: `[AUTOMATIC MESSAGE] Go version \`${reversedFirstTwoVersions[0].latest}\` is not in the manifest`,
+                title: `[AUTOMATIC MESSAGE] Go version \`${earliestVersionFromApi.latest}\` is not in the manifest`,
                 body:  `Hello :wave:
-                        The latest version of Go is \`${reversedFirstTwoVersions[0].latest}\` and the one in the manifest is \`${latestFromManifest}\`. Please consider updating the manifest.`,
+                        The latest version of Go is \`${earliestVersionFromApi.latest}\` and the one in the manifest is \`${latestFromManifest.version}\`. Please consider updating the manifest.`,
                 labels: ['manifest-version-mismatch'],
             };
     
             const githubIssue = new GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
-            await githubIssue.createIssueAndSendToSlack(this.internalRepository, this.name, reversedFirstTwoVersions[0].latest);
+            await githubIssue.createIssueAndSendToSlack(this.internalRepository, this.name, earliestVersionFromApi.latest);
             return;
         }
     
-        core.info(`The latest version of Go matches the one in the manifest. Checking the EOL support date...\n`);
+        core.info(`The version of Go provided by the API (${earliestVersionFromApi.latest}) matches the one in the manifest (${latestFromManifest.version}). Checking the EOL support date...\n`);
     
-        const sixMonthsFromEarliestVersion = calculateSixMonthsFromGivenDate(new Date(reversedFirstTwoVersions[0].latestReleaseDate));
-    
+        const sixMonthsFromEarliestVersion = dayjs(earliestVersionFromApi.latestReleaseDate).add(6, "months").format("YYYY-MM-DD");
+
         if (isDateMoreThanSixMonthsApart(new Date(sixMonthsFromEarliestVersion))) {
-            core.info(`The version ${reversedFirstTwoVersions[0].latest} has more than 6 months left before EOL. It will reach its EOL date on ${reversedFirstTwoVersions[0].eol} \n`);
+            core.info(`The version ${earliestVersionFromApi.latest} has more than 6 months left before EOL. It will reach its EOL date on ${earliestVersionFromApi.eol} \n`);
             return;
         }
     
         else if (!isDateMoreThanSixMonthsApart(new Date(sixMonthsFromEarliestVersion))) {
             const issueContent = {
-                title: `[AUTOMATIC MESSAGE] Go version \`${reversedFirstTwoVersions[0].latest}\` is losing support soon!`,
+                title: `[AUTOMATIC MESSAGE] Go version \`${earliestVersionFromApi.latest}\` is losing support soon!`,
                 body:  `Hello :wave: 
-                        The support for Go version \`${reversedFirstTwoVersions[0].latest}\` is ending in less than 6 months. Please consider upgrading to a newer version of Go.`,
+                        The support for Go version \`${earliestVersionFromApi.latest}\` is ending in less than 6 months. Please consider upgrading to a newer version of Go.`,
                 labels: ['deprecation-notice'],
             };
     
             const githubIssue = new GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
-            await githubIssue.createIssueAndSendToSlack(this.internalRepository, this.name, reversedFirstTwoVersions[0].latest);
+            await githubIssue.createIssueAndSendToSlack(this.internalRepository, this.name, earliestVersionFromApi.latest);
             return;
         }
 
         else {
-            core.setFailed(" The version " + reversedFirstTwoVersions[0].latest + " is no longer supported. It has reached its EOL date on " + reversedFirstTwoVersions[0].eol + ".");
+            core.setFailed(" The version " + earliestVersionFromApi.latest + " is no longer supported. It has reached its EOL date on " + earliestVersionFromApi.eol + ".");
         }
     }
 }

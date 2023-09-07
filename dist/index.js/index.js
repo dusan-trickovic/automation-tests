@@ -19795,7 +19795,7 @@ class Message {
             month: 'long',
             day: 'numeric'
         };
-        const currentDate = new Date(Date.now()).toLocaleDateString(dateFormatOptions);
+        const currentDate = new Date(Date.now()).toLocaleDateString('en-GB', dateFormatOptions);
         return `:warning: *New deprecation alert for ${currentDate}.*`;
     }
     ;
@@ -19888,13 +19888,15 @@ class BaseRepository {
     constructor(owner, repo) {
         this.owner = owner;
         this.repo = repo;
+        this.owner = owner;
+        this.repo = repo;
     }
 }
 exports.BaseRepository = BaseRepository;
 class ManifestRepository extends BaseRepository {
-    constructor(owner, repo) {
+    constructor(owner, repo, path = 'versions-manifest.json') {
         super(owner, repo);
-        this.path = 'versions-manifest.json';
+        this.path = path;
     }
     getVersionsManifestFromRepo(referenceVersion) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -19923,6 +19925,9 @@ class ManifestRepository extends BaseRepository {
 exports.ManifestRepository = ManifestRepository;
 class GitHubIssue {
     constructor(title, body, labels) {
+        this.title = title;
+        this.body = body;
+        this.labels = labels;
         this.title = title;
         this.body = body;
         this.labels = labels;
@@ -19993,15 +19998,22 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.GoTool = exports.PythonTool = exports.NodeTool = void 0;
 const semver = __importStar(__nccwpck_require__(1383));
 const core = __importStar(__nccwpck_require__(2186));
+const dayjs_1 = __importDefault(__nccwpck_require__(7401));
 const utils_1 = __nccwpck_require__(1314);
 const repository_classes_1 = __nccwpck_require__(7613);
 class Tool {
-    constructor(name, apiEndpoint, manifestRepository) {
-        this.internalRepository = new repository_classes_1.BaseRepository('dusan-trickovic', 'automation-tests');
+    constructor(name, apiEndpoint, manifestRepository, internalRepository = new repository_classes_1.BaseRepository('dusan-trickovic', 'automation-tests')) {
+        this.name = name;
+        this.apiEndpoint = apiEndpoint;
+        this.manifestRepository = manifestRepository;
+        this.internalRepository = internalRepository;
         this.name = name;
         this.apiEndpoint = apiEndpoint;
         this.manifestRepository = manifestRepository;
@@ -20017,7 +20029,7 @@ class Tool {
         return __awaiter(this, void 0, void 0, function* () {
             const filteredData = data.filter((item) => {
                 const eolDate = new Date(item.eol);
-                return (0, utils_1.dateGteCurrentDate)(eolDate.toISOString().split('T')[0]);
+                return (0, utils_1.dateGte)(eolDate, new Date());
             }).reverse();
             return filteredData;
         });
@@ -20032,8 +20044,8 @@ class Tool {
             const manifestData = yield this.manifestRepository.getVersionsManifestFromRepo(earliestVersionFromApi);
             const earliestVersionInManifest = manifestData[0].version;
             if (!semver.gte(earliestVersionFromApi, earliestVersionInManifest)) {
-                core.info(`The earliest version of ${this.name} does not match the one in the manifest.\n`);
-                core.warning(`The earliest version of ${this.name} is ${earliestVersionFromApi} and the one in the manifest is ${earliestVersionInManifest}.`);
+                core.info(`The version of ${this.name} (${earliestVersionFromApi}) provided by the API does not match the one in the manifest (${earliestVersionInManifest}).\n`);
+                core.warning(`The version of ${this.name} provided by the API is ${earliestVersionFromApi} and the one in the manifest is ${earliestVersionInManifest}.`);
                 const issueContent = {
                     title: `[AUTOMATIC MESSAGE] ${this.name} version \`${earliestVersionFromApi}\` is not in the manifest`,
                     body: `Hello :wave:
@@ -20044,9 +20056,9 @@ class Tool {
                 yield githubIssue.createIssueAndSendToSlack(this.internalRepository, this.name, earliestVersionFromApi);
                 return;
             }
-            core.info(`The earliest version of ${this.name} (${earliestVersionFromApi}) matches the one in the manifest. Checking the EOL support date...\n`);
+            core.info(`The version of ${this.name} provided by the API (${earliestVersionFromApi}) matches the one in the manifest (${earliestVersionInManifest}). Checking the EOL support date...\n`);
             if ((0, utils_1.isDateMoreThanSixMonthsApart)(new Date(filteredToolVersionsFromApi[0].eol))) {
-                core.info(`The version ${earliestVersionFromApi} has more than 6 months left before EOL. It will reach its EOL date on ${filteredToolVersionsFromApi[0].eol} \n`);
+                core.info(`${this.name} version ${earliestVersionFromApi} has more than 6 months left before EOL. It will reach its EOL date on ${filteredToolVersionsFromApi[0].eol} \n`);
                 return;
             }
             else if (!(0, utils_1.isDateMoreThanSixMonthsApart)(new Date(filteredToolVersionsFromApi[0].eol))) {
@@ -20088,43 +20100,44 @@ class GoTool extends Tool {
             const goVersionsFromApi = yield this.getVersionsFromApi(this.apiEndpoint);
             const firstTwoVersionsFromApi = goVersionsFromApi.slice(0, 2);
             const reversedFirstTwoVersions = firstTwoVersionsFromApi.reverse();
-            const earliestVersionFromApi = reversedFirstTwoVersions[0].latest;
-            const goVersionsFromManifest = yield this.manifestRepository.getVersionsManifestFromRepo(reversedFirstTwoVersions[0].latest);
-            const latestFromManifest = goVersionsFromManifest[0].version;
-            core.info(`\n ${this.name} version: ${earliestVersionFromApi}`);
+            const earliestVersionFromApi = reversedFirstTwoVersions[0];
+            const goVersionsFromManifest = yield this.manifestRepository.getVersionsManifestFromRepo(earliestVersionFromApi.latest);
+            const firstTwoVersionsFromManifest = goVersionsFromManifest.slice(0, 2);
+            const latestFromManifest = firstTwoVersionsFromManifest[0];
+            core.info(`\n ${this.name} version: ${earliestVersionFromApi.latest}`);
             core.info(` For more info on ${this.name} versions, please visit: https://endoflife.date/go \n`);
-            if (!semver.gte(reversedFirstTwoVersions[0].latest, latestFromManifest)) {
-                core.info(`The latest version of Go does not match the one in the manifest.\n`);
-                core.warning(`The latest version of Go is ${reversedFirstTwoVersions[0].latest} and the one in the manifest is ${latestFromManifest}.`);
+            if (!semver.gte(earliestVersionFromApi.latest, latestFromManifest.version)) {
+                core.info(`The version of Go (${earliestVersionFromApi.latest}) from API does not match the one in the manifest (${latestFromManifest.version}).\n`);
+                core.warning(`The version of Go provided by the API is ${earliestVersionFromApi.latest} and the one in the manifest is ${latestFromManifest.version}.`);
                 const issueContent = {
-                    title: `[AUTOMATIC MESSAGE] Go version \`${reversedFirstTwoVersions[0].latest}\` is not in the manifest`,
+                    title: `[AUTOMATIC MESSAGE] Go version \`${earliestVersionFromApi.latest}\` is not in the manifest`,
                     body: `Hello :wave:
-                        The latest version of Go is \`${reversedFirstTwoVersions[0].latest}\` and the one in the manifest is \`${latestFromManifest}\`. Please consider updating the manifest.`,
+                        The latest version of Go is \`${earliestVersionFromApi.latest}\` and the one in the manifest is \`${latestFromManifest.version}\`. Please consider updating the manifest.`,
                     labels: ['manifest-version-mismatch'],
                 };
                 const githubIssue = new repository_classes_1.GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
-                yield githubIssue.createIssueAndSendToSlack(this.internalRepository, this.name, reversedFirstTwoVersions[0].latest);
+                yield githubIssue.createIssueAndSendToSlack(this.internalRepository, this.name, earliestVersionFromApi.latest);
                 return;
             }
-            core.info(`The latest version of Go matches the one in the manifest. Checking the EOL support date...\n`);
-            const sixMonthsFromEarliestVersion = (0, utils_1.calculateSixMonthsFromGivenDate)(new Date(reversedFirstTwoVersions[0].latestReleaseDate));
+            core.info(`The version of Go provided by the API (${earliestVersionFromApi.latest}) matches the one in the manifest (${latestFromManifest.version}). Checking the EOL support date...\n`);
+            const sixMonthsFromEarliestVersion = (0, dayjs_1.default)(earliestVersionFromApi.latestReleaseDate).add(6, "months").format("YYYY-MM-DD");
             if ((0, utils_1.isDateMoreThanSixMonthsApart)(new Date(sixMonthsFromEarliestVersion))) {
-                core.info(`The version ${reversedFirstTwoVersions[0].latest} has more than 6 months left before EOL. It will reach its EOL date on ${reversedFirstTwoVersions[0].eol} \n`);
+                core.info(`The version ${earliestVersionFromApi.latest} has more than 6 months left before EOL. It will reach its EOL date on ${earliestVersionFromApi.eol} \n`);
                 return;
             }
             else if (!(0, utils_1.isDateMoreThanSixMonthsApart)(new Date(sixMonthsFromEarliestVersion))) {
                 const issueContent = {
-                    title: `[AUTOMATIC MESSAGE] Go version \`${reversedFirstTwoVersions[0].latest}\` is losing support soon!`,
+                    title: `[AUTOMATIC MESSAGE] Go version \`${earliestVersionFromApi.latest}\` is losing support soon!`,
                     body: `Hello :wave: 
-                        The support for Go version \`${reversedFirstTwoVersions[0].latest}\` is ending in less than 6 months. Please consider upgrading to a newer version of Go.`,
+                        The support for Go version \`${earliestVersionFromApi.latest}\` is ending in less than 6 months. Please consider upgrading to a newer version of Go.`,
                     labels: ['deprecation-notice'],
                 };
                 const githubIssue = new repository_classes_1.GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
-                yield githubIssue.createIssueAndSendToSlack(this.internalRepository, this.name, reversedFirstTwoVersions[0].latest);
+                yield githubIssue.createIssueAndSendToSlack(this.internalRepository, this.name, earliestVersionFromApi.latest);
                 return;
             }
             else {
-                core.setFailed(" The version " + reversedFirstTwoVersions[0].latest + " is no longer supported. It has reached its EOL date on " + reversedFirstTwoVersions[0].eol + ".");
+                core.setFailed(" The version " + earliestVersionFromApi.latest + " is no longer supported. It has reached its EOL date on " + earliestVersionFromApi.eol + ".");
             }
         });
     }
@@ -20143,21 +20156,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.isDateMoreThanSixMonthsApart = exports.calculateSixMonthsFromGivenDate = exports.dateGteCurrentDate = void 0;
+exports.isDateMoreThanSixMonthsApart = exports.dateGte = void 0;
 const dayjs_1 = __importDefault(__nccwpck_require__(7401));
-function dateGteCurrentDate(date) {
-    const currentDate = (0, dayjs_1.default)(new Date());
-    const comparisonDate = (0, dayjs_1.default)(date);
-    return currentDate <= comparisonDate;
+function dateGte(date1, date2) {
+    return date1.valueOf() >= date2.valueOf();
 }
-exports.dateGteCurrentDate = dateGteCurrentDate;
-// Function used for Go versions only
-function calculateSixMonthsFromGivenDate(date) {
-    const givenDate = (0, dayjs_1.default)(date);
-    const sixMonthsFromGivenDate = givenDate.add(6, 'month');
-    return sixMonthsFromGivenDate.format('YYYY-MM-DD');
-}
-exports.calculateSixMonthsFromGivenDate = calculateSixMonthsFromGivenDate;
+exports.dateGte = dateGte;
 function isDateMoreThanSixMonthsApart(date) {
     const currentDate = (0, dayjs_1.default)(new Date());
     const givenDate = (0, dayjs_1.default)(date);

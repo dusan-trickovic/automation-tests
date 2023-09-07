@@ -16,19 +16,15 @@ const octokit = new Octokit({
 });
 
 export class BaseRepository {
-    owner: string;
-    repo: string;
-    constructor (owner: string, repo: string) {
+    constructor (public owner: string, public repo: string) {
         this.owner = owner;
         this.repo = repo;
     }
 }
 
 export class ManifestRepository extends BaseRepository {
-    path: string;
-    constructor (owner: string, repo: string) {
+    constructor (owner: string, repo: string, public path: string = 'versions-manifest.json') {
         super(owner, repo);
-        this.path = 'versions-manifest.json';
     }
 
     async getVersionsManifestFromRepo(referenceVersion: string) {
@@ -56,10 +52,7 @@ export class ManifestRepository extends BaseRepository {
 }
 
 export class GitHubIssue {
-    private title: string;
-    private body: string;
-    private labels: string[];
-    constructor(title: string, body: string, labels: string[]) {
+    constructor(public title: string, public body: string, public labels: string[]) {
         this.title = title;
         this.body = body;
         this.labels = labels;
