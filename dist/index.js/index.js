@@ -24254,6 +24254,7 @@ const core = __importStar(__nccwpck_require__(2186));
 const dayjs_1 = __importDefault(__nccwpck_require__(7401));
 const utils_1 = __nccwpck_require__(1314);
 const repository_classes_1 = __nccwpck_require__(7613);
+const node_fetch_1 = __importDefault(__nccwpck_require__(4429));
 class Tool {
     constructor(name, apiEndpoint, manifestRepository, internalRepository = new repository_classes_1.BaseRepository('dusan-trickovic', 'automation-tests')) {
         this.name = name;
@@ -24266,7 +24267,7 @@ class Tool {
     }
     getVersionsFromApi(url) {
         return __awaiter(this, void 0, void 0, function* () {
-            const response = yield fetch(url);
+            const response = yield (0, node_fetch_1.default)(url);
             const data = yield response.json();
             return data;
         });

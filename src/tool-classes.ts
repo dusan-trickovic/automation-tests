@@ -3,6 +3,7 @@ import * as core from '@actions/core';
 import dayjs from 'dayjs';
 import { dateGte, isDateMoreThanSixMonthsAway } from "./utils";
 import { BaseRepository, GitHubIssue, ManifestRepository } from './repository-classes';
+import fetch from 'node-fetch'
 
 interface IResponseFormat {
     eol: string;
