@@ -3,6 +3,7 @@ import * as semver from 'semver';
 import { ACCESS_TOKEN } from './config';
 import { Octokit } from '@octokit/rest';
 import { SlackMessage } from './message';
+import fetch from 'node-fetch';
 
 interface GithubFileContent {
     content: string;
