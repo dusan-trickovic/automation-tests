@@ -1,7 +1,6 @@
 import * as core from "@actions/core";
 import { GoTool, NodeTool, PythonTool } from "./tool-classes";
 
-
 async function main() {
     const nodeTool = new NodeTool();
     const pythonTool = new PythonTool();
