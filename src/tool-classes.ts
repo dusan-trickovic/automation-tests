@@ -1,7 +1,7 @@
 import * as semver from 'semver';
 import * as core from '@actions/core';
 import dayjs from 'dayjs';
-import { dateGte, isDateMoreThanSixMonthsApart } from "./utils";
+import { dateGte, isDateMoreThanSixMonthsAway } from "./utils";
 import { BaseRepository, GitHubIssue, ManifestRepository } from './repository-classes';
 
 interface IResponseFormat {
@@ -64,12 +64,12 @@ abstract class Tool {
     
         core.info(`The version of ${this.name} provided by the API (${earliestVersionFromApi}) matches the one in the manifest (${earliestVersionInManifest}). Checking the EOL support date...\n`);
     
-        if (isDateMoreThanSixMonthsApart(new Date(filteredToolVersionsFromApi[0].eol))) {
+        if (isDateMoreThanSixMonthsAway(new Date(filteredToolVersionsFromApi[0].eol))) {
             core.info(`${this.name} version ${earliestVersionFromApi} has more than 6 months left before EOL. It will reach its EOL date on ${filteredToolVersionsFromApi[0].eol} \n`);
             return;
         }
     
-        else if (!isDateMoreThanSixMonthsApart(new Date(filteredToolVersionsFromApi[0].eol))) {
+        else if (!isDateMoreThanSixMonthsAway(new Date(filteredToolVersionsFromApi[0].eol))) {
             const earliestVersionFromApiEol = filteredToolVersionsFromApi[0].eol;
             const issueContent = {
                 title: `[AUTOMATIC MESSAGE] ${this.name} version \`${earliestVersionFromApi}\` is losing support on ${earliestVersionFromApiEol}`,
@@ -156,12 +156,12 @@ export class GoTool extends Tool {
     
         const sixMonthsFromEarliestVersion = dayjs(earliestVersionFromApi.latestReleaseDate).add(6, "months").format("YYYY-MM-DD");
 
-        if (isDateMoreThanSixMonthsApart(new Date(sixMonthsFromEarliestVersion))) {
+        if (isDateMoreThanSixMonthsAway(new Date(sixMonthsFromEarliestVersion))) {
             core.info(`The version ${earliestVersionFromApi.latest} has more than 6 months left before EOL. It will reach its EOL date on ${earliestVersionFromApi.eol} \n`);
             return;
         }
     
-        else if (!isDateMoreThanSixMonthsApart(new Date(sixMonthsFromEarliestVersion))) {
+        else if (!isDateMoreThanSixMonthsAway(new Date(sixMonthsFromEarliestVersion))) {
             const issueContent = {
                 title: `[AUTOMATIC MESSAGE] Go version \`${earliestVersionFromApi.latest}\` is losing support soon!`,
                 body:  `Hello :wave: 

@@ -20057,11 +20057,11 @@ class Tool {
                 return;
             }
             core.info(`The version of ${this.name} provided by the API (${earliestVersionFromApi}) matches the one in the manifest (${earliestVersionInManifest}). Checking the EOL support date...\n`);
-            if ((0, utils_1.isDateMoreThanSixMonthsApart)(new Date(filteredToolVersionsFromApi[0].eol))) {
+            if ((0, utils_1.isDateMoreThanSixMonthsAway)(new Date(filteredToolVersionsFromApi[0].eol))) {
                 core.info(`${this.name} version ${earliestVersionFromApi} has more than 6 months left before EOL. It will reach its EOL date on ${filteredToolVersionsFromApi[0].eol} \n`);
                 return;
             }
-            else if (!(0, utils_1.isDateMoreThanSixMonthsApart)(new Date(filteredToolVersionsFromApi[0].eol))) {
+            else if (!(0, utils_1.isDateMoreThanSixMonthsAway)(new Date(filteredToolVersionsFromApi[0].eol))) {
                 const earliestVersionFromApiEol = filteredToolVersionsFromApi[0].eol;
                 const issueContent = {
                     title: `[AUTOMATIC MESSAGE] ${this.name} version \`${earliestVersionFromApi}\` is losing support on ${earliestVersionFromApiEol}`,
@@ -20121,11 +20121,11 @@ class GoTool extends Tool {
             }
             core.info(`The version of Go provided by the API (${earliestVersionFromApi.latest}) matches the one in the manifest (${latestFromManifest.version}). Checking the EOL support date...\n`);
             const sixMonthsFromEarliestVersion = (0, dayjs_1.default)(earliestVersionFromApi.latestReleaseDate).add(6, "months").format("YYYY-MM-DD");
-            if ((0, utils_1.isDateMoreThanSixMonthsApart)(new Date(sixMonthsFromEarliestVersion))) {
+            if ((0, utils_1.isDateMoreThanSixMonthsAway)(new Date(sixMonthsFromEarliestVersion))) {
                 core.info(`The version ${earliestVersionFromApi.latest} has more than 6 months left before EOL. It will reach its EOL date on ${earliestVersionFromApi.eol} \n`);
                 return;
             }
-            else if (!(0, utils_1.isDateMoreThanSixMonthsApart)(new Date(sixMonthsFromEarliestVersion))) {
+            else if (!(0, utils_1.isDateMoreThanSixMonthsAway)(new Date(sixMonthsFromEarliestVersion))) {
                 const issueContent = {
                     title: `[AUTOMATIC MESSAGE] Go version \`${earliestVersionFromApi.latest}\` is losing support soon!`,
                     body: `Hello :wave: 
@@ -20156,19 +20156,19 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.isDateMoreThanSixMonthsApart = exports.dateGte = void 0;
+exports.isDateMoreThanSixMonthsAway = exports.dateGte = void 0;
 const dayjs_1 = __importDefault(__nccwpck_require__(7401));
 function dateGte(date1, date2) {
     return date1.valueOf() >= date2.valueOf();
 }
 exports.dateGte = dateGte;
-function isDateMoreThanSixMonthsApart(date) {
+function isDateMoreThanSixMonthsAway(date) {
     const currentDate = (0, dayjs_1.default)(new Date());
     const givenDate = (0, dayjs_1.default)(date);
     const difference = givenDate.diff(currentDate, 'month');
     return difference > 6;
 }
-exports.isDateMoreThanSixMonthsApart = isDateMoreThanSixMonthsApart;
+exports.isDateMoreThanSixMonthsAway = isDateMoreThanSixMonthsAway;
 
 
 /***/ }),
