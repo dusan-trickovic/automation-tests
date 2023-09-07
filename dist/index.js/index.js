@@ -8949,327 +8949,6 @@ exports.Deprecation = Deprecation;
 
 /***/ }),
 
-/***/ 2437:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-const fs = __nccwpck_require__(7147)
-const path = __nccwpck_require__(1017)
-const os = __nccwpck_require__(2037)
-const crypto = __nccwpck_require__(6113)
-const packageJson = __nccwpck_require__(9968)
-
-const version = packageJson.version
-
-const LINE = /(?:^|^)\s*(?:export\s+)?([\w.-]+)(?:\s*=\s*?|:\s+?)(\s*'(?:\\'|[^'])*'|\s*"(?:\\"|[^"])*"|\s*`(?:\\`|[^`])*`|[^#\r\n]+)?\s*(?:#.*)?(?:$|$)/mg
-
-// Parse src into an Object
-function parse (src) {
-  const obj = {}
-
-  // Convert buffer to string
-  let lines = src.toString()
-
-  // Convert line breaks to same format
-  lines = lines.replace(/\r\n?/mg, '\n')
-
-  let match
-  while ((match = LINE.exec(lines)) != null) {
-    const key = match[1]
-
-    // Default undefined or null to empty string
-    let value = (match[2] || '')
-
-    // Remove whitespace
-    value = value.trim()
-
-    // Check if double quoted
-    const maybeQuote = value[0]
-
-    // Remove surrounding quotes
-    value = value.replace(/^(['"`])([\s\S]*)\1$/mg, '$2')
-
-    // Expand newlines if double quoted
-    if (maybeQuote === '"') {
-      value = value.replace(/\\n/g, '\n')
-      value = value.replace(/\\r/g, '\r')
-    }
-
-    // Add to object
-    obj[key] = value
-  }
-
-  return obj
-}
-
-function _parseVault (options) {
-  const vaultPath = _vaultPath(options)
-
-  // Parse .env.vault
-  const result = DotenvModule.configDotenv({ path: vaultPath })
-  if (!result.parsed) {
-    throw new Error(`MISSING_DATA: Cannot parse ${vaultPath} for an unknown reason`)
-  }
-
-  // handle scenario for comma separated keys - for use with key rotation
-  // example: DOTENV_KEY="dotenv://:key_1234@dotenv.org/vault/.env.vault?environment=prod,dotenv://:key_7890@dotenv.org/vault/.env.vault?environment=prod"
-  const keys = _dotenvKey(options).split(',')
-  const length = keys.length
-
-  let decrypted
-  for (let i = 0; i < length; i++) {
-    try {
-      // Get full key
-      const key = keys[i].trim()
-
-      // Get instructions for decrypt
-      const attrs = _instructions(result, key)
-
-      // Decrypt
-      decrypted = DotenvModule.decrypt(attrs.ciphertext, attrs.key)
-
-      break
-    } catch (error) {
-      // last key
-      if (i + 1 >= length) {
-        throw error
-      }
-      // try next key
-    }
-  }
-
-  // Parse decrypted .env string
-  return DotenvModule.parse(decrypted)
-}
-
-function _log (message) {
-  console.log(`[dotenv@${version}][INFO] ${message}`)
-}
-
-function _warn (message) {
-  console.log(`[dotenv@${version}][WARN] ${message}`)
-}
-
-function _debug (message) {
-  console.log(`[dotenv@${version}][DEBUG] ${message}`)
-}
-
-function _dotenvKey (options) {
-  // prioritize developer directly setting options.DOTENV_KEY
-  if (options && options.DOTENV_KEY && options.DOTENV_KEY.length > 0) {
-    return options.DOTENV_KEY
-  }
-
-  // secondary infra already contains a DOTENV_KEY environment variable
-  if (process.env.DOTENV_KEY && process.env.DOTENV_KEY.length > 0) {
-    return process.env.DOTENV_KEY
-  }
-
-  // fallback to empty string
-  return ''
-}
-
-function _instructions (result, dotenvKey) {
-  // Parse DOTENV_KEY. Format is a URI
-  let uri
-  try {
-    uri = new URL(dotenvKey)
-  } catch (error) {
-    if (error.code === 'ERR_INVALID_URL') {
-      throw new Error('INVALID_DOTENV_KEY: Wrong format. Must be in valid uri format like dotenv://:key_1234@dotenv.org/vault/.env.vault?environment=development')
-    }
-
-    throw error
-  }
-
-  // Get decrypt key
-  const key = uri.password
-  if (!key) {
-    throw new Error('INVALID_DOTENV_KEY: Missing key part')
-  }
-
-  // Get environment
-  const environment = uri.searchParams.get('environment')
-  if (!environment) {
-    throw new Error('INVALID_DOTENV_KEY: Missing environment part')
-  }
-
-  // Get ciphertext payload
-  const environmentKey = `DOTENV_VAULT_${environment.toUpperCase()}`
-  const ciphertext = result.parsed[environmentKey] // DOTENV_VAULT_PRODUCTION
-  if (!ciphertext) {
-    throw new Error(`NOT_FOUND_DOTENV_ENVIRONMENT: Cannot locate environment ${environmentKey} in your .env.vault file.`)
-  }
-
-  return { ciphertext, key }
-}
-
-function _vaultPath (options) {
-  let dotenvPath = path.resolve(process.cwd(), '.env')
-
-  if (options && options.path && options.path.length > 0) {
-    dotenvPath = options.path
-  }
-
-  // Locate .env.vault
-  return dotenvPath.endsWith('.vault') ? dotenvPath : `${dotenvPath}.vault`
-}
-
-function _resolveHome (envPath) {
-  return envPath[0] === '~' ? path.join(os.homedir(), envPath.slice(1)) : envPath
-}
-
-function _configVault (options) {
-  _log('Loading env from encrypted .env.vault')
-
-  const parsed = DotenvModule._parseVault(options)
-
-  let processEnv = process.env
-  if (options && options.processEnv != null) {
-    processEnv = options.processEnv
-  }
-
-  DotenvModule.populate(processEnv, parsed, options)
-
-  return { parsed }
-}
-
-function configDotenv (options) {
-  let dotenvPath = path.resolve(process.cwd(), '.env')
-  let encoding = 'utf8'
-  const debug = Boolean(options && options.debug)
-
-  if (options) {
-    if (options.path != null) {
-      dotenvPath = _resolveHome(options.path)
-    }
-    if (options.encoding != null) {
-      encoding = options.encoding
-    }
-  }
-
-  try {
-    // Specifying an encoding returns a string instead of a buffer
-    const parsed = DotenvModule.parse(fs.readFileSync(dotenvPath, { encoding }))
-
-    let processEnv = process.env
-    if (options && options.processEnv != null) {
-      processEnv = options.processEnv
-    }
-
-    DotenvModule.populate(processEnv, parsed, options)
-
-    return { parsed }
-  } catch (e) {
-    if (debug) {
-      _debug(`Failed to load ${dotenvPath} ${e.message}`)
-    }
-
-    return { error: e }
-  }
-}
-
-// Populates process.env from .env file
-function config (options) {
-  const vaultPath = _vaultPath(options)
-
-  // fallback to original dotenv if DOTENV_KEY is not set
-  if (_dotenvKey(options).length === 0) {
-    return DotenvModule.configDotenv(options)
-  }
-
-  // dotenvKey exists but .env.vault file does not exist
-  if (!fs.existsSync(vaultPath)) {
-    _warn(`You set DOTENV_KEY but you are missing a .env.vault file at ${vaultPath}. Did you forget to build it?`)
-
-    return DotenvModule.configDotenv(options)
-  }
-
-  return DotenvModule._configVault(options)
-}
-
-function decrypt (encrypted, keyStr) {
-  const key = Buffer.from(keyStr.slice(-64), 'hex')
-  let ciphertext = Buffer.from(encrypted, 'base64')
-
-  const nonce = ciphertext.slice(0, 12)
-  const authTag = ciphertext.slice(-16)
-  ciphertext = ciphertext.slice(12, -16)
-
-  try {
-    const aesgcm = crypto.createDecipheriv('aes-256-gcm', key, nonce)
-    aesgcm.setAuthTag(authTag)
-    return `${aesgcm.update(ciphertext)}${aesgcm.final()}`
-  } catch (error) {
-    const isRange = error instanceof RangeError
-    const invalidKeyLength = error.message === 'Invalid key length'
-    const decryptionFailed = error.message === 'Unsupported state or unable to authenticate data'
-
-    if (isRange || invalidKeyLength) {
-      const msg = 'INVALID_DOTENV_KEY: It must be 64 characters long (or more)'
-      throw new Error(msg)
-    } else if (decryptionFailed) {
-      const msg = 'DECRYPTION_FAILED: Please check your DOTENV_KEY'
-      throw new Error(msg)
-    } else {
-      console.error('Error: ', error.code)
-      console.error('Error: ', error.message)
-      throw error
-    }
-  }
-}
-
-// Populate process.env with parsed values
-function populate (processEnv, parsed, options = {}) {
-  const debug = Boolean(options && options.debug)
-  const override = Boolean(options && options.override)
-
-  if (typeof parsed !== 'object') {
-    throw new Error('OBJECT_REQUIRED: Please check the processEnv argument being passed to populate')
-  }
-
-  // Set process.env
-  for (const key of Object.keys(parsed)) {
-    if (Object.prototype.hasOwnProperty.call(processEnv, key)) {
-      if (override === true) {
-        processEnv[key] = parsed[key]
-      }
-
-      if (debug) {
-        if (override === true) {
-          _debug(`"${key}" is already defined and WAS overwritten`)
-        } else {
-          _debug(`"${key}" is already defined and was NOT overwritten`)
-        }
-      }
-    } else {
-      processEnv[key] = parsed[key]
-    }
-  }
-}
-
-const DotenvModule = {
-  configDotenv,
-  _configVault,
-  _parseVault,
-  config,
-  decrypt,
-  parse,
-  populate
-}
-
-module.exports.configDotenv = DotenvModule.configDotenv
-module.exports._configVault = DotenvModule._configVault
-module.exports._parseVault = DotenvModule._parseVault
-module.exports.config = DotenvModule.config
-module.exports.decrypt = DotenvModule.decrypt
-module.exports.parse = DotenvModule.parse
-module.exports.populate = DotenvModule.populate
-
-module.exports = DotenvModule
-
-
-/***/ }),
-
 /***/ 1133:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
@@ -23883,37 +23562,15 @@ try {
 /***/ }),
 
 /***/ 6373:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+/***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
 
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.ACCESS_TOKEN = exports.WEBHOOK_URL = void 0;
-const dotenv = __importStar(__nccwpck_require__(2437));
-dotenv.config();
+// Uncomment the following lines to use the .env file
+// import * as dotenv from 'dotenv';
+// dotenv.config();
 exports.WEBHOOK_URL = process.env['SLACK_WEBHOOK_URL'];
 exports.ACCESS_TOKEN = process.env['PERSONAL_ACCESS_TOKEN'];
 
@@ -24117,7 +23774,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.GitHubIssue = exports.ManifestRepository = exports.BaseRepository = void 0;
+exports.GitHubIssue = exports.ManifestRepository = exports.InternalRepository = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const semver = __importStar(__nccwpck_require__(1383));
 const config_1 = __nccwpck_require__(6373);
@@ -24138,7 +23795,12 @@ class BaseRepository {
         this.repo = repo;
     }
 }
-exports.BaseRepository = BaseRepository;
+class InternalRepository extends BaseRepository {
+    constructor(owner = 'dusan-trickovic', repo = 'automation-tests') {
+        super(owner, repo);
+    }
+}
+exports.InternalRepository = InternalRepository;
 class ManifestRepository extends BaseRepository {
     constructor(owner, repo, path = 'versions-manifest.json') {
         super(owner, repo);
@@ -24178,19 +23840,32 @@ class GitHubIssue {
         this.body = body;
         this.labels = labels;
     }
-    createIssueAndSendToSlack(baseRepository, toolName, expiringToolVersion) {
+    sendIssueToSlack(toolName, expiringToolVersion) {
         return __awaiter(this, void 0, void 0, function* () {
             const slackMessageBuilder = new message_1.SlackMessage();
             try {
+                slackMessageBuilder.buildMessage(this.body);
+                yield slackMessageBuilder.sendMessage();
+                const successMessage = `Successfully sent a Slack message regarding the issue for ${toolName} version ${expiringToolVersion}. \n`;
+                core.info(successMessage);
+                return;
+            }
+            catch (error) {
+                const errorMessage = error.message;
+                core.setFailed("Error while sending the notification to Slack: " + errorMessage);
+            }
+        });
+    }
+    createIssue(internalRepository, toolName, expiringToolVersion) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
                 yield octokit.issues.create({
-                    owner: baseRepository.owner,
-                    repo: baseRepository.repo,
+                    owner: internalRepository.owner,
+                    repo: internalRepository.repo,
                     title: this.title,
                     body: this.body,
                     labels: this.labels,
                 });
-                slackMessageBuilder.buildMessage(this.body);
-                yield slackMessageBuilder.sendMessage();
                 const successMessage = `Successfully created an issue for ${toolName} version ${expiringToolVersion}.\n`;
                 core.info(successMessage);
                 return;
@@ -24256,7 +23931,7 @@ const node_fetch_1 = __importDefault(__nccwpck_require__(4429));
 const utils_1 = __nccwpck_require__(1314);
 const repository_classes_1 = __nccwpck_require__(7613);
 class Tool {
-    constructor(name, eolApiEndpoint, manifestRepository, internalRepository = new repository_classes_1.BaseRepository('dusan-trickovic', 'automation-tests')) {
+    constructor(name, eolApiEndpoint, manifestRepository, internalRepository = new repository_classes_1.InternalRepository()) {
         this.name = name;
         this.eolApiEndpoint = eolApiEndpoint;
         this.manifestRepository = manifestRepository;
@@ -24276,53 +23951,54 @@ class Tool {
         return __awaiter(this, void 0, void 0, function* () {
             const filteredData = data.filter((item) => {
                 const eolDate = new Date(item.eol);
-                return (0, utils_1.dateGte)(eolDate, new Date());
+                // The condition below is needed as 'lts: false' for Node means that the version is unstable (e.g. v15)
+                // while in the response for Python and Go, all versions have 'lts' set to false and it would return undefined.
+                const condition = this.name === 'Node' ?
+                    ((0, utils_1.dateGte)(eolDate, new Date()) && item.lts !== false) :
+                    (0, utils_1.dateGte)(eolDate, new Date());
+                return condition;
             }).reverse();
             return filteredData;
         });
     }
     checkVersions() {
         return __awaiter(this, void 0, void 0, function* () {
-            const toolVersionsFromApi = yield this.getVersionsFromApi(this.eolApiEndpoint);
-            const filteredToolVersionsFromApi = yield this.filterApiData(toolVersionsFromApi);
-            const earliestVersionFromApi = filteredToolVersionsFromApi[0].latest;
-            core.info(`\n ${this.name} version: ${earliestVersionFromApi}`);
+            const toolVersionsFromEolApi = yield this.getVersionsFromApi(this.eolApiEndpoint);
+            const filteredToolVersionsFromEolApi = yield this.filterApiData(toolVersionsFromEolApi);
+            const versionClosestToEol = filteredToolVersionsFromEolApi[0];
+            core.info(`\n ${this.name} version: ${versionClosestToEol.latest}`);
             core.info(` For more info on ${this.name} versions, please visit: https://endoflife.date/${this.name === 'Node' ? 'nodejs' : 'python'}\n`);
-            const manifestData = yield this.manifestRepository.getVersionsManifestFromRepo(earliestVersionFromApi);
+            const manifestData = yield this.manifestRepository.getVersionsManifestFromRepo(versionClosestToEol.latest);
             const earliestVersionInManifest = manifestData[0].version;
-            if (!semver.gte(earliestVersionFromApi, earliestVersionInManifest)) {
-                core.info(`The version of ${this.name} (${earliestVersionFromApi}) provided by the API does not match the one in the manifest (${earliestVersionInManifest}).\n`);
-                core.warning(`The version of ${this.name} provided by the API is ${earliestVersionFromApi} and the one in the manifest is ${earliestVersionInManifest}.`);
+            if (!semver.gte(versionClosestToEol.latest, earliestVersionInManifest)) {
+                core.info(`The version of ${this.name} (${versionClosestToEol.latest}) provided by the API does not match the one in the manifest (${earliestVersionInManifest}).\n`);
+                core.warning(`The version of ${this.name} provided by the API is ${versionClosestToEol.latest} and the one in the manifest is ${earliestVersionInManifest}.`);
                 const issueContent = {
-                    title: `[AUTOMATIC MESSAGE] ${this.name} version \`${earliestVersionFromApi}\` is not in the manifest`,
+                    title: `[AUTOMATIC MESSAGE] ${this.name} version \`${versionClosestToEol.latest}\` is not in the manifest`,
                     body: `Hello :wave:
-                        The earliest version of ${this.name} is \`${earliestVersionFromApi}\` and the one in the manifest is \`${earliestVersionInManifest}\`. Please consider updating the manifest.`,
+                        The earliest version of ${this.name} is \`${versionClosestToEol.latest}\` and the one in the manifest is \`${earliestVersionInManifest}\`. Please consider updating the manifest.`,
                     labels: ['manifest-version-mismatch'],
                 };
                 const githubIssue = new repository_classes_1.GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
-                yield githubIssue.createIssueAndSendToSlack(this.internalRepository, this.name, earliestVersionFromApi);
+                yield githubIssue.createIssue(this.internalRepository, this.name, versionClosestToEol.latest);
+                yield githubIssue.sendIssueToSlack(this.name, versionClosestToEol.latest);
                 return;
             }
-            core.info(`The version of ${this.name} provided by the API (${earliestVersionFromApi}) matches the one in the manifest (${earliestVersionInManifest}). Checking the EOL support date...\n`);
-            if ((0, utils_1.isDateMoreThanSixMonthsAway)(new Date(filteredToolVersionsFromApi[0].eol))) {
-                core.info(`${this.name} version ${earliestVersionFromApi} has more than 6 months left before EOL. It will reach its EOL date on ${filteredToolVersionsFromApi[0].eol} \n`);
+            core.info(`The version of ${this.name} provided by the API (${versionClosestToEol.latest}) matches the one in the manifest (${earliestVersionInManifest}). Checking the EOL support date...\n`);
+            if ((0, utils_1.isDateMoreThanSixMonthsAway)(new Date(versionClosestToEol.eol))) {
+                core.info(`${this.name} version ${versionClosestToEol.latest} has more than 6 months left before EOL. It will reach its EOL date on ${versionClosestToEol.eol} \n`);
                 return;
             }
-            else if (!(0, utils_1.isDateMoreThanSixMonthsAway)(new Date(filteredToolVersionsFromApi[0].eol))) {
-                const earliestVersionFromApiEol = filteredToolVersionsFromApi[0].eol;
-                const issueContent = {
-                    title: `[AUTOMATIC MESSAGE] ${this.name} version \`${earliestVersionFromApi}\` is losing support on ${earliestVersionFromApiEol}`,
-                    body: `Hello :wave: 
-                        The support for ${this.name} version \`${earliestVersionFromApi}\` is ending on ${earliestVersionFromApiEol}. Please consider upgrading to a newer version of ${this.name}.`,
-                    labels: ['deprecation-notice'],
-                };
-                const githubIssue = new repository_classes_1.GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
-                yield githubIssue.createIssueAndSendToSlack(this.internalRepository, this.name, earliestVersionFromApi);
-                return;
-            }
-            else {
-                core.setFailed(" The version " + earliestVersionFromApi + " is no longer supported. It has reached its EOL date on " + filteredToolVersionsFromApi[0].eol + ".");
-            }
+            const issueContent = {
+                title: `[AUTOMATIC MESSAGE] ${this.name} version \`${versionClosestToEol.latest}\` is losing support on ${versionClosestToEol.eol}`,
+                body: `Hello :wave: 
+                    The support for ${this.name} version \`${versionClosestToEol.latest}\` is ending on ${versionClosestToEol.eol}. Please consider upgrading to a newer version of ${this.name}.`,
+                labels: ['deprecation-notice'],
+            };
+            const githubIssue = new repository_classes_1.GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
+            yield githubIssue.createIssue(this.internalRepository, this.name, versionClosestToEol.latest);
+            yield githubIssue.sendIssueToSlack(this.name, versionClosestToEol.latest);
+            return;
         });
     }
 }
@@ -24344,48 +24020,45 @@ class GoTool extends Tool {
     }
     checkVersions() {
         return __awaiter(this, void 0, void 0, function* () {
-            const goVersionsFromApi = yield this.getVersionsFromApi(this.eolApiEndpoint);
-            const firstTwoVersionsFromApi = goVersionsFromApi.slice(0, 2);
-            const reversedFirstTwoVersions = firstTwoVersionsFromApi.reverse();
-            const earliestVersionFromApi = reversedFirstTwoVersions[0];
-            const goVersionsFromManifest = yield this.manifestRepository.getVersionsManifestFromRepo(earliestVersionFromApi.latest);
+            const goVersionsFromEolApi = yield this.getVersionsFromApi(this.eolApiEndpoint);
+            const firstTwoVersionsFromEolApi = goVersionsFromEolApi.slice(0, 2);
+            const reversedFirstTwoVersions = firstTwoVersionsFromEolApi.reverse();
+            const versionClosestToEol = reversedFirstTwoVersions[0];
+            const goVersionsFromManifest = yield this.manifestRepository.getVersionsManifestFromRepo(versionClosestToEol.latest);
             const firstTwoVersionsFromManifest = goVersionsFromManifest.slice(0, 2);
             const latestFromManifest = firstTwoVersionsFromManifest[0];
-            core.info(`\n ${this.name} version: ${earliestVersionFromApi.latest}`);
+            core.info(`\n ${this.name} version: ${versionClosestToEol.latest}`);
             core.info(` For more info on ${this.name} versions, please visit: https://endoflife.date/go \n`);
-            if (!semver.gte(earliestVersionFromApi.latest, latestFromManifest.version)) {
-                core.info(`The version of Go (${earliestVersionFromApi.latest}) from API does not match the one in the manifest (${latestFromManifest.version}).\n`);
-                core.warning(`The version of Go provided by the API is ${earliestVersionFromApi.latest} and the one in the manifest is ${latestFromManifest.version}.`);
+            if (!semver.gte(versionClosestToEol.latest, latestFromManifest.version)) {
+                core.info(`The version of Go (${versionClosestToEol.latest}) from API does not match the one in the manifest (${latestFromManifest.version}).\n`);
+                core.warning(`The version of Go provided by the API is ${versionClosestToEol.latest} and the one in the manifest is ${latestFromManifest.version}.`);
                 const issueContent = {
-                    title: `[AUTOMATIC MESSAGE] Go version \`${earliestVersionFromApi.latest}\` is not in the manifest`,
+                    title: `[AUTOMATIC MESSAGE] Go version \`${versionClosestToEol.latest}\` is not in the manifest`,
                     body: `Hello :wave:
-                        The latest version of Go is \`${earliestVersionFromApi.latest}\` and the one in the manifest is \`${latestFromManifest.version}\`. Please consider updating the manifest.`,
+                        The latest version of Go is \`${versionClosestToEol.latest}\` and the one in the manifest is \`${latestFromManifest.version}\`. Please consider updating the manifest.`,
                     labels: ['manifest-version-mismatch'],
                 };
                 const githubIssue = new repository_classes_1.GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
-                yield githubIssue.createIssueAndSendToSlack(this.internalRepository, this.name, earliestVersionFromApi.latest);
+                yield githubIssue.createIssue(this.internalRepository, this.name, versionClosestToEol.latest);
+                yield githubIssue.sendIssueToSlack(this.name, versionClosestToEol.latest);
                 return;
             }
-            core.info(`The version of Go provided by the API (${earliestVersionFromApi.latest}) matches the one in the manifest (${latestFromManifest.version}). Checking the EOL support date...\n`);
-            const sixMonthsFromEarliestVersion = (0, dayjs_1.default)(earliestVersionFromApi.latestReleaseDate).add(6, "months").format("YYYY-MM-DD");
+            core.info(`The version of Go provided by the API (${versionClosestToEol.latest}) matches the one in the manifest (${latestFromManifest.version}). Checking the EOL support date...\n`);
+            const sixMonthsFromEarliestVersion = (0, dayjs_1.default)(versionClosestToEol.latestReleaseDate).add(6, "months").format("YYYY-MM-DD");
             if ((0, utils_1.isDateMoreThanSixMonthsAway)(new Date(sixMonthsFromEarliestVersion))) {
-                core.info(`The version ${earliestVersionFromApi.latest} has more than 6 months left before EOL. It will reach its EOL date on ${earliestVersionFromApi.eol} \n`);
+                core.info(`The version ${versionClosestToEol.latest} has more than 6 months left before EOL. It will reach its EOL date on ${versionClosestToEol.eol} \n`);
                 return;
             }
-            else if (!(0, utils_1.isDateMoreThanSixMonthsAway)(new Date(sixMonthsFromEarliestVersion))) {
-                const issueContent = {
-                    title: `[AUTOMATIC MESSAGE] Go version \`${earliestVersionFromApi.latest}\` is losing support soon!`,
-                    body: `Hello :wave: 
-                        The support for Go version \`${earliestVersionFromApi.latest}\` is ending in less than 6 months. Please consider upgrading to a newer version of Go.`,
-                    labels: ['deprecation-notice'],
-                };
-                const githubIssue = new repository_classes_1.GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
-                yield githubIssue.createIssueAndSendToSlack(this.internalRepository, this.name, earliestVersionFromApi.latest);
-                return;
-            }
-            else {
-                core.setFailed(" The version " + earliestVersionFromApi.latest + " is no longer supported. It has reached its EOL date on " + earliestVersionFromApi.eol + ".");
-            }
+            const issueContent = {
+                title: `[AUTOMATIC MESSAGE] Go version \`${versionClosestToEol.latest}\` is losing support soon!`,
+                body: `Hello :wave: 
+                    The support for Go version \`${versionClosestToEol.latest}\` is ending in less than 6 months. Please consider upgrading to a newer version of Go.`,
+                labels: ['deprecation-notice'],
+            };
+            const githubIssue = new repository_classes_1.GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
+            yield githubIssue.createIssue(this.internalRepository, this.name, versionClosestToEol.latest);
+            yield githubIssue.sendIssueToSlack(this.name, versionClosestToEol.latest);
+            return;
         });
     }
 }
@@ -27328,14 +27001,6 @@ module.exports = JSON.parse('{"name":"@slack/webhook","version":"6.1.0","descrip
 
 "use strict";
 module.exports = JSON.parse('{"name":"axios","version":"0.21.4","description":"Promise based HTTP client for the browser and node.js","main":"index.js","scripts":{"test":"grunt test","start":"node ./sandbox/server.js","build":"NODE_ENV=production grunt build","preversion":"npm test","version":"npm run build && grunt version && git add -A dist && git add CHANGELOG.md bower.json package.json","postversion":"git push && git push --tags","examples":"node ./examples/server.js","coveralls":"cat coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js","fix":"eslint --fix lib/**/*.js"},"repository":{"type":"git","url":"https://github.com/axios/axios.git"},"keywords":["xhr","http","ajax","promise","node"],"author":"Matt Zabriskie","license":"MIT","bugs":{"url":"https://github.com/axios/axios/issues"},"homepage":"https://axios-http.com","devDependencies":{"coveralls":"^3.0.0","es6-promise":"^4.2.4","grunt":"^1.3.0","grunt-banner":"^0.6.0","grunt-cli":"^1.2.0","grunt-contrib-clean":"^1.1.0","grunt-contrib-watch":"^1.0.0","grunt-eslint":"^23.0.0","grunt-karma":"^4.0.0","grunt-mocha-test":"^0.13.3","grunt-ts":"^6.0.0-beta.19","grunt-webpack":"^4.0.2","istanbul-instrumenter-loader":"^1.0.0","jasmine-core":"^2.4.1","karma":"^6.3.2","karma-chrome-launcher":"^3.1.0","karma-firefox-launcher":"^2.1.0","karma-jasmine":"^1.1.1","karma-jasmine-ajax":"^0.1.13","karma-safari-launcher":"^1.0.0","karma-sauce-launcher":"^4.3.6","karma-sinon":"^1.0.5","karma-sourcemap-loader":"^0.3.8","karma-webpack":"^4.0.2","load-grunt-tasks":"^3.5.2","minimist":"^1.2.0","mocha":"^8.2.1","sinon":"^4.5.0","terser-webpack-plugin":"^4.2.3","typescript":"^4.0.5","url-search-params":"^0.10.0","webpack":"^4.44.2","webpack-dev-server":"^3.11.0"},"browser":{"./lib/adapters/http.js":"./lib/adapters/xhr.js"},"jsdelivr":"dist/axios.min.js","unpkg":"dist/axios.min.js","typings":"./index.d.ts","dependencies":{"follow-redirects":"^1.14.0"},"bundlesize":[{"path":"./dist/axios.min.js","threshold":"5kB"}]}');
-
-/***/ }),
-
-/***/ 9968:
-/***/ ((module) => {
-
-"use strict";
-module.exports = JSON.parse('{"name":"dotenv","version":"16.3.1","description":"Loads environment variables from .env file","main":"lib/main.js","types":"lib/main.d.ts","exports":{".":{"types":"./lib/main.d.ts","require":"./lib/main.js","default":"./lib/main.js"},"./config":"./config.js","./config.js":"./config.js","./lib/env-options":"./lib/env-options.js","./lib/env-options.js":"./lib/env-options.js","./lib/cli-options":"./lib/cli-options.js","./lib/cli-options.js":"./lib/cli-options.js","./package.json":"./package.json"},"scripts":{"dts-check":"tsc --project tests/types/tsconfig.json","lint":"standard","lint-readme":"standard-markdown","pretest":"npm run lint && npm run dts-check","test":"tap tests/*.js --100 -Rspec","prerelease":"npm test","release":"standard-version"},"repository":{"type":"git","url":"git://github.com/motdotla/dotenv.git"},"funding":"https://github.com/motdotla/dotenv?sponsor=1","keywords":["dotenv","env",".env","environment","variables","config","settings"],"readmeFilename":"README.md","license":"BSD-2-Clause","devDependencies":{"@definitelytyped/dtslint":"^0.0.133","@types/node":"^18.11.3","decache":"^4.6.1","sinon":"^14.0.1","standard":"^17.0.0","standard-markdown":"^7.1.0","standard-version":"^9.5.0","tap":"^16.3.0","tar":"^6.1.11","typescript":"^4.8.4"},"engines":{"node":">=12"},"browser":{"fs":false}}');
 
 /***/ })
 

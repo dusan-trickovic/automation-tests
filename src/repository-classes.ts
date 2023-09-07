@@ -16,10 +16,16 @@ const octokit = new Octokit({
     },
 });
 
-export class BaseRepository {
+abstract class BaseRepository {
     constructor (public owner: string, public repo: string) {
         this.owner = owner;
         this.repo = repo;
+    }
+}
+
+export class InternalRepository extends BaseRepository {
+    constructor (owner: string = 'dusan-trickovic', repo: string = 'automation-tests') {
+        super(owner, repo);
     }
 }
 
@@ -59,22 +65,36 @@ export class GitHubIssue {
         this.labels = labels;
     }
 
-    async createIssueAndSendToSlack(
-        baseRepository: BaseRepository,
+    async sendIssueToSlack(
         toolName: string,
         expiringToolVersion: string
     ) {
         const slackMessageBuilder = new SlackMessage();
         try {
+            slackMessageBuilder.buildMessage(this.body);
+            await slackMessageBuilder.sendMessage();
+            const successMessage = `Successfully sent a Slack message regarding the issue for ${toolName} version ${expiringToolVersion}. \n`;
+            core.info(successMessage);
+            return;
+        } catch (error) {
+            const errorMessage = (error as Error).message;
+            core.setFailed("Error while sending the notification to Slack: " + errorMessage);
+        }
+    }
+
+    async createIssue(
+        internalRepository: InternalRepository,
+        toolName: string,
+        expiringToolVersion: string
+    ) {
+        try {
             await octokit.issues.create({
-                owner: baseRepository.owner,
-                repo: baseRepository.repo,
+                owner: internalRepository.owner,
+                repo: internalRepository.repo,
                 title: this.title,
                 body: this.body,
                 labels: this.labels,
             });
-        slackMessageBuilder.buildMessage(this.body);
-        await slackMessageBuilder.sendMessage();
         const successMessage = `Successfully created an issue for ${toolName} version ${expiringToolVersion}.\n`;
         core.info(successMessage);
         return;
