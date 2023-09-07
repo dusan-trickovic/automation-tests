@@ -24252,21 +24252,22 @@ exports.GoTool = exports.PythonTool = exports.NodeTool = void 0;
 const semver = __importStar(__nccwpck_require__(1383));
 const core = __importStar(__nccwpck_require__(2186));
 const dayjs_1 = __importDefault(__nccwpck_require__(7401));
+const node_fetch_1 = __importDefault(__nccwpck_require__(4429));
 const utils_1 = __nccwpck_require__(1314);
 const repository_classes_1 = __nccwpck_require__(7613);
 class Tool {
-    constructor(name, apiEndpoint, manifestRepository, internalRepository = new repository_classes_1.BaseRepository('dusan-trickovic', 'automation-tests')) {
+    constructor(name, eolApiEndpoint, manifestRepository, internalRepository = new repository_classes_1.BaseRepository('dusan-trickovic', 'automation-tests')) {
         this.name = name;
-        this.apiEndpoint = apiEndpoint;
+        this.eolApiEndpoint = eolApiEndpoint;
         this.manifestRepository = manifestRepository;
         this.internalRepository = internalRepository;
         this.name = name;
-        this.apiEndpoint = apiEndpoint;
+        this.eolApiEndpoint = eolApiEndpoint;
         this.manifestRepository = manifestRepository;
     }
     getVersionsFromApi(url) {
         return __awaiter(this, void 0, void 0, function* () {
-            const response = yield fetch(url);
+            const response = yield (0, node_fetch_1.default)(url);
             const data = yield response.json();
             return data;
         });
@@ -24282,7 +24283,7 @@ class Tool {
     }
     checkVersions() {
         return __awaiter(this, void 0, void 0, function* () {
-            const toolVersionsFromApi = yield this.getVersionsFromApi(this.apiEndpoint);
+            const toolVersionsFromApi = yield this.getVersionsFromApi(this.eolApiEndpoint);
             const filteredToolVersionsFromApi = yield this.filterApiData(toolVersionsFromApi);
             const earliestVersionFromApi = filteredToolVersionsFromApi[0].latest;
             core.info(`\n ${this.name} version: ${earliestVersionFromApi}`);
@@ -24326,24 +24327,24 @@ class Tool {
     }
 }
 class NodeTool extends Tool {
-    constructor(name = 'Node', apiEndpoint = 'https://endoflife.date/api/node.json', manifestRepository = new repository_classes_1.ManifestRepository('actions', 'node-versions')) {
-        super(name, apiEndpoint, manifestRepository);
+    constructor(name = 'Node', eolApiEndpoint = 'https://endoflife.date/api/node.json', manifestRepository = new repository_classes_1.ManifestRepository('actions', 'node-versions')) {
+        super(name, eolApiEndpoint, manifestRepository);
     }
 }
 exports.NodeTool = NodeTool;
 class PythonTool extends Tool {
-    constructor(name = 'Python', apiEndpoint = 'https://endoflife.date/api/python.json', manifestRepository = new repository_classes_1.ManifestRepository('actions', 'python-versions')) {
-        super(name, apiEndpoint, manifestRepository);
+    constructor(name = 'Python', eolApiEndpoint = 'https://endoflife.date/api/python.json', manifestRepository = new repository_classes_1.ManifestRepository('actions', 'python-versions')) {
+        super(name, eolApiEndpoint, manifestRepository);
     }
 }
 exports.PythonTool = PythonTool;
 class GoTool extends Tool {
-    constructor(name = 'Go', apiEndpoint = 'https://endoflife.date/api/go.json', manifestRepository = new repository_classes_1.ManifestRepository('actions', 'go-versions')) {
-        super(name, apiEndpoint, manifestRepository);
+    constructor(name = 'Go', eolApiEndpoint = 'https://endoflife.date/api/go.json', manifestRepository = new repository_classes_1.ManifestRepository('actions', 'go-versions')) {
+        super(name, eolApiEndpoint, manifestRepository);
     }
     checkVersions() {
         return __awaiter(this, void 0, void 0, function* () {
-            const goVersionsFromApi = yield this.getVersionsFromApi(this.apiEndpoint);
+            const goVersionsFromApi = yield this.getVersionsFromApi(this.eolApiEndpoint);
             const firstTwoVersionsFromApi = goVersionsFromApi.slice(0, 2);
             const reversedFirstTwoVersions = firstTwoVersionsFromApi.reverse();
             const earliestVersionFromApi = reversedFirstTwoVersions[0];

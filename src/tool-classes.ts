@@ -1,6 +1,7 @@
 import * as semver from 'semver';
 import * as core from '@actions/core';
 import dayjs from 'dayjs';
+import fetch from 'node-fetch';
 import { dateGte, isDateMoreThanSixMonthsAway } from "./utils";
 import { BaseRepository, GitHubIssue, ManifestRepository } from './repository-classes';
 
@@ -13,18 +14,18 @@ interface IResponseFormat {
 abstract class Tool {
     constructor(
         protected name: string, 
-        protected apiEndpoint: string, 
+        protected eolApiEndpoint: string, 
         protected manifestRepository: ManifestRepository,
         protected internalRepository: BaseRepository = new BaseRepository('dusan-trickovic', 'automation-tests')
         ) {
         this.name = name;
-        this.apiEndpoint = apiEndpoint;
+        this.eolApiEndpoint = eolApiEndpoint;
         this.manifestRepository = manifestRepository;
     }
 
     protected async getVersionsFromApi(url: string): Promise<IResponseFormat[]> {
         const response = await fetch(url);
-        const data: any = await response.json();
+        const data: IResponseFormat[] = await response.json() as IResponseFormat[];
         return data;
     }
 
@@ -37,7 +38,7 @@ abstract class Tool {
     }
 
     async checkVersions() {
-        const toolVersionsFromApi = await this.getVersionsFromApi(this.apiEndpoint);
+        const toolVersionsFromApi = await this.getVersionsFromApi(this.eolApiEndpoint);
         const filteredToolVersionsFromApi = await this.filterApiData(toolVersionsFromApi);
         const earliestVersionFromApi = filteredToolVersionsFromApi[0].latest;
         
@@ -94,38 +95,36 @@ abstract class Tool {
 export class NodeTool extends Tool {
     constructor(
         name: string = 'Node', 
-        apiEndpoint: string = 'https://endoflife.date/api/node.json', 
+        eolApiEndpoint: string = 'https://endoflife.date/api/node.json', 
         manifestRepository: ManifestRepository = new ManifestRepository('actions', 'node-versions')
         ) {
-        super(name, apiEndpoint, manifestRepository);
+        super(name, eolApiEndpoint, manifestRepository);
     }
 }
-
 
 
 export class PythonTool extends Tool {
     constructor(
         name: string = 'Python',
-        apiEndpoint: string = 'https://endoflife.date/api/python.json',
+        eolApiEndpoint: string = 'https://endoflife.date/api/python.json',
         manifestRepository: ManifestRepository = new ManifestRepository('actions', 'python-versions')
         ) {
-        super(name, apiEndpoint, manifestRepository);
+        super(name, eolApiEndpoint, manifestRepository);
     }
 }
-
 
 
 export class GoTool extends Tool {
     constructor(
         name: string = 'Go',
-        apiEndpoint: string = 'https://endoflife.date/api/go.json',
+        eolApiEndpoint: string = 'https://endoflife.date/api/go.json',
         manifestRepository: ManifestRepository = new ManifestRepository('actions', 'go-versions')
         ) {
-        super(name, apiEndpoint, manifestRepository);
+        super(name, eolApiEndpoint, manifestRepository);
     }
 
     async checkVersions() {
-        const goVersionsFromApi = await this.getVersionsFromApi(this.apiEndpoint);
+        const goVersionsFromApi = await this.getVersionsFromApi(this.eolApiEndpoint);
         const firstTwoVersionsFromApi =  goVersionsFromApi.slice(0, 2);
         const reversedFirstTwoVersions = firstTwoVersionsFromApi.reverse();
         const earliestVersionFromApi = reversedFirstTwoVersions[0];
