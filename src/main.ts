@@ -11,7 +11,7 @@ async function main() {
             nodeTool.checkVersions(),
             pythonTool.checkVersions(),
             goTool.checkVersions(),
-        ]
+        ];
 
         await Promise.all(promises);
     } catch (error) {

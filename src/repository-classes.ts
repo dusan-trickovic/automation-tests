@@ -5,8 +5,12 @@ import { Octokit } from '@octokit/rest';
 import { SlackMessage } from './message';
 import fetch from 'node-fetch';
 
-interface GithubFileContent {
+interface IGithubFileContent {
     content: string;
+}
+
+interface INecessaryDataFromManifest {
+    version: string;
 }
 
 const octokit = new Octokit({ 
@@ -34,7 +38,7 @@ export class ManifestRepository extends BaseRepository {
         super(owner, repo);
     }
 
-    async getVersionsManifestFromRepo(referenceVersion: string) {
+    async getVersionsManifestFromRepo(referenceVersion: string): Promise<INecessaryDataFromManifest[]> {
         try {   
             const response = await octokit.repos.getContent({
             owner: this.owner,
@@ -42,15 +46,15 @@ export class ManifestRepository extends BaseRepository {
             path:  this.path,
             });
     
-            const githubFileContent = response.data as GithubFileContent;
+            const githubFileContent = response.data as IGithubFileContent;
             const content = Buffer.from(githubFileContent.content, 'base64').toString();
             const jsonData = JSON.parse(content);
             const reversedJsonData = jsonData.reverse();
-            const latestFromManifest = reversedJsonData.filter((item: any) => {
+            const latestFromManifest: INecessaryDataFromManifest[] = reversedJsonData.filter((item: INecessaryDataFromManifest) => {
                 return semver.gte(item.version, referenceVersion);
             });
     
-            return latestFromManifest;
+            return latestFromManifest as INecessaryDataFromManifest[];
         } catch (error) {
             core.setFailed((error as Error).message);
             return [];

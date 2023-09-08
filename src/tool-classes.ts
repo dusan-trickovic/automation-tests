@@ -9,6 +9,7 @@ interface IResponseFormat {
     eol: string;
     latest: string;
     latestReleaseDate: string;
+    lts: boolean | string;
 }
 
 abstract class Tool {
@@ -17,7 +18,7 @@ abstract class Tool {
         protected eolApiEndpoint: string, 
         protected manifestRepository: ManifestRepository,
         protected internalRepository: InternalRepository = new InternalRepository()
-        ) {
+    ) {
         this.name = name;
         this.eolApiEndpoint = eolApiEndpoint;
         this.manifestRepository = manifestRepository;
@@ -30,7 +31,7 @@ abstract class Tool {
     }
 
     protected async filterApiData(data: IResponseFormat[]) {
-        const filteredData = data.filter((item: any) => {
+        const filteredData = data.filter((item: IResponseFormat) => {
             const eolDate = new Date(item.eol);
             // The condition below is needed as 'lts: false' for Node means that the version is unstable (e.g. v15)
             // while in the response for Python and Go, all versions have 'lts' set to false and it would return undefined.
