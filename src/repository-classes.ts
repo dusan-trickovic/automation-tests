@@ -26,7 +26,7 @@ abstract class BaseRepository {
         this.repo = repo;
     }
 
-    async fetchAllIssues(): Promise<GitHubIssue[]> {
+    protected async fetchAllOpenIssues(): Promise<GitHubIssue[]> {
         try {
             const response = await octokit.issues.listForRepo({
                 owner: this.owner,
@@ -36,9 +36,14 @@ abstract class BaseRepository {
             const data: unknown = response.data;
             return data as GitHubIssue[];
         } catch (error) {
-            core.setFailed((error as Error).message);
             throw new Error((error as Error).message);
         }
+    }
+
+    async findIssueByTitle(title: string): Promise<GitHubIssue | null> {
+        const allOpenIssues = await this.fetchAllOpenIssues();
+        const issue = allOpenIssues.find((issue: any) => issue.title === title);
+        return issue || null;
     }
 }
 
@@ -70,7 +75,6 @@ export class ManifestRepository extends BaseRepository {
             });
             return latestFromManifest as INecessaryDataFromManifest[];
         } catch (error) {
-            core.setFailed((error as Error).message);
             throw new Error((error as Error).message);
         }
     }

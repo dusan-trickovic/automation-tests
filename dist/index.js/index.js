@@ -24138,7 +24138,7 @@ class BaseRepository {
         this.owner = owner;
         this.repo = repo;
     }
-    fetchAllIssues() {
+    fetchAllOpenIssues() {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const response = yield octokit.issues.listForRepo({
@@ -24150,9 +24150,15 @@ class BaseRepository {
                 return data;
             }
             catch (error) {
-                core.setFailed(error.message);
                 throw new Error(error.message);
             }
+        });
+    }
+    findIssueByTitle(title) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const allOpenIssues = yield this.fetchAllOpenIssues();
+            const issue = allOpenIssues.find((issue) => issue.title === title);
+            return issue || null;
         });
     }
 }
@@ -24185,7 +24191,6 @@ class ManifestRepository extends BaseRepository {
                 return latestFromManifest;
             }
             catch (error) {
-                core.setFailed(error.message);
                 throw new Error(error.message);
             }
         });
@@ -24307,10 +24312,6 @@ class Tool {
             return data;
         });
     }
-    doesIssueTitleExist(issues, title) {
-        const issueTitles = issues.map((issue) => issue.title);
-        return issueTitles.includes(title);
-    }
     filterApiData(data) {
         return __awaiter(this, void 0, void 0, function* () {
             const filteredData = data.filter((item) => {
@@ -24334,7 +24335,6 @@ class Tool {
             core.info(` For more info on ${this.name} versions, please visit: https://endoflife.date/${this.name === 'Node' ? 'nodejs' : 'python'}\n`);
             const manifestData = yield this.manifestRepository.getVersionsManifestFromRepo(versionClosestToEol.latest);
             const earliestVersionInManifest = manifestData[0].version;
-            const listOfOpenIssues = yield this.internalRepository.fetchAllIssues();
             if (!semver.gte(versionClosestToEol.latest, earliestVersionInManifest)) {
                 core.warning(`The version of ${this.name} (${versionClosestToEol.latest}) provided by the API does not match the one in the manifest (${earliestVersionInManifest}).\n`);
                 const issueContent = {
@@ -24343,7 +24343,7 @@ class Tool {
                         The earliest version of ${this.name} is \`${versionClosestToEol.latest}\` and the one in the manifest is \`${earliestVersionInManifest}\`. Please consider updating the manifest.`,
                     labels: ['manifest-version-mismatch'],
                 };
-                if (this.doesIssueTitleExist(listOfOpenIssues, issueContent.title)) {
+                if (yield this.internalRepository.findIssueByTitle(issueContent.title)) {
                     core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository. Skipping the creation of a new issue.\n`);
                     return;
                 }
@@ -24365,7 +24365,7 @@ class Tool {
                     The support for ${this.name} version \`${versionClosestToEol.latest}\` is ending on ${versionClosestToEol.eol}. Please consider upgrading to a newer version of ${this.name}.`,
                 labels: ['deprecation-notice'],
             };
-            if (this.doesIssueTitleExist(listOfOpenIssues, issueContent.title)) {
+            if (yield this.internalRepository.findIssueByTitle(issueContent.title)) {
                 core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository. Skipping the creation of a new issue.\n`);
                 return;
             }
@@ -24401,7 +24401,6 @@ class GoTool extends Tool {
             const versionClosestToEol = goVersionsFromEolApi[1];
             const goVersionsFromManifest = yield this.manifestRepository.getVersionsManifestFromRepo(versionClosestToEol.latest);
             const latestFromManifest = goVersionsFromManifest[0];
-            const listOfOpenIssues = yield this.internalRepository.fetchAllIssues();
             core.info(`\n ${this.name} version: ${versionClosestToEol.latest}`);
             core.info(` For more info on ${this.name} versions, please visit: https://endoflife.date/go \n`);
             if (!semver.gte(versionClosestToEol.latest, latestFromManifest.version)) {
@@ -24412,7 +24411,7 @@ class GoTool extends Tool {
                 The latest version of Go is \`${versionClosestToEol.latest}\` and the one in the manifest is \`${latestFromManifest.version}\`. Please consider updating the manifest.`,
                     labels: ['manifest-version-mismatch'],
                 };
-                if (this.doesIssueTitleExist(listOfOpenIssues, issueContent.title)) {
+                if (yield this.internalRepository.findIssueByTitle(issueContent.title)) {
                     core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository. Skipping the creation of a new issue.\n`);
                     return;
                 }
@@ -24430,7 +24429,7 @@ class GoTool extends Tool {
             The support for Go version \`${versionClosestToEol.latest}\` is ending in less than 6 months. Please consider upgrading to a newer version of Go.`,
                 labels: ['deprecation-notice'],
             };
-            if (this.doesIssueTitleExist(listOfOpenIssues, issueContent.title)) {
+            if (yield this.internalRepository.findIssueByTitle(issueContent.title)) {
                 core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository. Skipping the creation of a new issue.\n`);
                 return;
             }

@@ -30,11 +30,6 @@ abstract class Tool {
         return data;
     }
 
-    protected doesIssueTitleExist(issues: GitHubIssue[], title: string): boolean {
-        const issueTitles = issues.map((issue: any) => issue.title);
-        return issueTitles.includes(title);
-    }
-
     protected async filterApiData(data: IApiResponseFormat[]) {
         const filteredData = data.filter((item: IApiResponseFormat) => {
             const eolDate = new Date(item.eol);
@@ -58,7 +53,6 @@ abstract class Tool {
         
         const manifestData = await this.manifestRepository.getVersionsManifestFromRepo(versionClosestToEol.latest);
         const earliestVersionInManifest = manifestData[0].version;
-        const listOfOpenIssues = await this.internalRepository.fetchAllIssues();
     
         if (!semver.gte(versionClosestToEol.latest, earliestVersionInManifest)) {
             core.warning(`The version of ${this.name} (${versionClosestToEol.latest}) provided by the API does not match the one in the manifest (${earliestVersionInManifest}).\n`);
@@ -69,7 +63,7 @@ abstract class Tool {
                 labels: ['manifest-version-mismatch'],
             };
     
-            if (this.doesIssueTitleExist(listOfOpenIssues, issueContent.title)) {
+            if (await this.internalRepository.findIssueByTitle(issueContent.title)) {
                 core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository. Skipping the creation of a new issue.\n`);
                 return;
             }
@@ -98,7 +92,7 @@ abstract class Tool {
             labels: ['deprecation-notice'],
         };
 
-        if (this.doesIssueTitleExist(listOfOpenIssues, issueContent.title)) {
+        if (await this.internalRepository.findIssueByTitle(issueContent.title)) {
             core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository. Skipping the creation of a new issue.\n`);
             return;
         }
@@ -153,7 +147,6 @@ export class GoTool extends Tool {
 
         const goVersionsFromManifest = await this.manifestRepository.getVersionsManifestFromRepo(versionClosestToEol.latest);
         const latestFromManifest = goVersionsFromManifest[0];
-        const listOfOpenIssues = await this.internalRepository.fetchAllIssues();
     
         core.info(`\n ${this.name} version: ${versionClosestToEol.latest}`);
         core.info(` For more info on ${this.name} versions, please visit: https://endoflife.date/go \n`);
@@ -167,7 +160,7 @@ export class GoTool extends Tool {
                 labels: ['manifest-version-mismatch'],
             };
 
-            if (this.doesIssueTitleExist(listOfOpenIssues, issueContent.title)) {
+            if (await this.internalRepository.findIssueByTitle(issueContent.title)) {
                 core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository. Skipping the creation of a new issue.\n`);
                 return;
             }
@@ -191,7 +184,7 @@ export class GoTool extends Tool {
             labels: ['deprecation-notice'],
         };
         
-        if (this.doesIssueTitleExist(listOfOpenIssues, issueContent.title)) {
+        if (await this.internalRepository.findIssueByTitle(issueContent.title)) {
             core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository. Skipping the creation of a new issue.\n`);
             return;
         }
