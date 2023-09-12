@@ -24138,6 +24138,23 @@ class BaseRepository {
         this.owner = owner;
         this.repo = repo;
     }
+    fetchAllIssues() {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const response = yield octokit.issues.listForRepo({
+                    owner: this.owner,
+                    repo: this.repo,
+                    state: 'open',
+                });
+                const data = response.data;
+                return data;
+            }
+            catch (error) {
+                core.setFailed(error.message);
+                throw new Error(error.message);
+            }
+        });
+    }
 }
 class InternalRepository extends BaseRepository {
     constructor(owner = 'dusan-trickovic', repo = 'automation-tests') {
@@ -24290,6 +24307,10 @@ class Tool {
             return data;
         });
     }
+    doesIssueTitleExist(issues, title) {
+        const issueTitles = issues.map((issue) => issue.title);
+        return issueTitles.includes(title);
+    }
     filterApiData(data) {
         return __awaiter(this, void 0, void 0, function* () {
             const filteredData = data.filter((item) => {
@@ -24313,15 +24334,20 @@ class Tool {
             core.info(` For more info on ${this.name} versions, please visit: https://endoflife.date/${this.name === 'Node' ? 'nodejs' : 'python'}\n`);
             const manifestData = yield this.manifestRepository.getVersionsManifestFromRepo(versionClosestToEol.latest);
             const earliestVersionInManifest = manifestData[0].version;
+            const listOfOpenIssues = yield this.internalRepository.fetchAllIssues();
             if (!semver.gte(versionClosestToEol.latest, earliestVersionInManifest)) {
                 core.warning(`The version of ${this.name} (${versionClosestToEol.latest}) provided by the API does not match the one in the manifest (${earliestVersionInManifest}).\n`);
-                core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
                 const issueContent = {
                     title: `[AUTOMATIC MESSAGE] ${this.name} version \`${versionClosestToEol.latest}\` is not in the manifest`,
                     body: `Hello :wave:
                         The earliest version of ${this.name} is \`${versionClosestToEol.latest}\` and the one in the manifest is \`${earliestVersionInManifest}\`. Please consider updating the manifest.`,
                     labels: ['manifest-version-mismatch'],
                 };
+                if (this.doesIssueTitleExist(listOfOpenIssues, issueContent.title)) {
+                    core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository. Skipping the creation of a new issue.\n`);
+                    return;
+                }
+                core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
                 const githubIssue = new repository_classes_1.GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
                 yield githubIssue.createIssue(this.internalRepository, this.name, versionClosestToEol.latest);
                 yield githubIssue.sendIssueInfoToSlack(this.name, versionClosestToEol.latest);
@@ -24333,13 +24359,17 @@ class Tool {
                 return;
             }
             core.info(`The version of ${this.name} is losing support in less than 6 months (${versionClosestToEol.eol}).\n`);
-            core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
             const issueContent = {
                 title: `[AUTOMATIC MESSAGE] ${this.name} version \`${versionClosestToEol.latest}\` is losing support on ${versionClosestToEol.eol}`,
                 body: `Hello :wave: 
                     The support for ${this.name} version \`${versionClosestToEol.latest}\` is ending on ${versionClosestToEol.eol}. Please consider upgrading to a newer version of ${this.name}.`,
                 labels: ['deprecation-notice'],
             };
+            if (this.doesIssueTitleExist(listOfOpenIssues, issueContent.title)) {
+                core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository. Skipping the creation of a new issue.\n`);
+                return;
+            }
+            core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
             const githubIssue = new repository_classes_1.GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
             yield githubIssue.createIssue(this.internalRepository, this.name, versionClosestToEol.latest);
             yield githubIssue.sendIssueInfoToSlack(this.name, versionClosestToEol.latest);
@@ -24371,17 +24401,22 @@ class GoTool extends Tool {
             const versionClosestToEol = goVersionsFromEolApi[1];
             const goVersionsFromManifest = yield this.manifestRepository.getVersionsManifestFromRepo(versionClosestToEol.latest);
             const latestFromManifest = goVersionsFromManifest[0];
+            const listOfOpenIssues = yield this.internalRepository.fetchAllIssues();
             core.info(`\n ${this.name} version: ${versionClosestToEol.latest}`);
             core.info(` For more info on ${this.name} versions, please visit: https://endoflife.date/go \n`);
             if (!semver.gte(versionClosestToEol.latest, latestFromManifest.version)) {
                 core.warning(`The version of Go (${versionClosestToEol.latest}) from API does not match the one in the manifest (${latestFromManifest.version}).\n`);
-                core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
                 const issueContent = {
                     title: `[AUTOMATIC MESSAGE] Go version \`${versionClosestToEol.latest}\` is not in the manifest`,
                     body: `Hello :wave:
-                        The latest version of Go is \`${versionClosestToEol.latest}\` and the one in the manifest is \`${latestFromManifest.version}\`. Please consider updating the manifest.`,
+                The latest version of Go is \`${versionClosestToEol.latest}\` and the one in the manifest is \`${latestFromManifest.version}\`. Please consider updating the manifest.`,
                     labels: ['manifest-version-mismatch'],
                 };
+                if (this.doesIssueTitleExist(listOfOpenIssues, issueContent.title)) {
+                    core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository. Skipping the creation of a new issue.\n`);
+                    return;
+                }
+                core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
                 const githubIssue = new repository_classes_1.GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
                 yield githubIssue.createIssue(this.internalRepository, this.name, versionClosestToEol.latest);
                 yield githubIssue.sendIssueInfoToSlack(this.name, versionClosestToEol.latest);
@@ -24389,13 +24424,17 @@ class GoTool extends Tool {
             }
             core.info(`The version of Go provided by the API (${versionClosestToEol.latest}) matches the one in the manifest (${latestFromManifest.version}).\n`);
             core.warning(`The earlier version of Go (${versionClosestToEol.latest}) is losing support in less than 6 months.\n`);
-            core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
             const issueContent = {
                 title: `[AUTOMATIC MESSAGE] Go version \`${versionClosestToEol.latest}\` is losing support soon!`,
                 body: `Hello :wave: 
-                    The support for Go version \`${versionClosestToEol.latest}\` is ending in less than 6 months. Please consider upgrading to a newer version of Go.`,
+            The support for Go version \`${versionClosestToEol.latest}\` is ending in less than 6 months. Please consider upgrading to a newer version of Go.`,
                 labels: ['deprecation-notice'],
             };
+            if (this.doesIssueTitleExist(listOfOpenIssues, issueContent.title)) {
+                core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository. Skipping the creation of a new issue.\n`);
+                return;
+            }
+            core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
             const githubIssue = new repository_classes_1.GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
             yield githubIssue.createIssue(this.internalRepository, this.name, versionClosestToEol.latest);
             yield githubIssue.sendIssueInfoToSlack(this.name, versionClosestToEol.latest);

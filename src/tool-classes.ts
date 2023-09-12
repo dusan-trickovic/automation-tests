@@ -30,6 +30,11 @@ abstract class Tool {
         return data;
     }
 
+    protected doesIssueTitleExist(issues: GitHubIssue[], title: string): boolean {
+        const issueTitles = issues.map((issue: any) => issue.title);
+        return issueTitles.includes(title);
+    }
+
     protected async filterApiData(data: IApiResponseFormat[]) {
         const filteredData = data.filter((item: IApiResponseFormat) => {
             const eolDate = new Date(item.eol);
@@ -53,10 +58,10 @@ abstract class Tool {
         
         const manifestData = await this.manifestRepository.getVersionsManifestFromRepo(versionClosestToEol.latest);
         const earliestVersionInManifest = manifestData[0].version;
+        const listOfOpenIssues = await this.internalRepository.fetchAllIssues();
     
         if (!semver.gte(versionClosestToEol.latest, earliestVersionInManifest)) {
             core.warning(`The version of ${this.name} (${versionClosestToEol.latest}) provided by the API does not match the one in the manifest (${earliestVersionInManifest}).\n`);
-            core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
             const issueContent = {
                 title: `[AUTOMATIC MESSAGE] ${this.name} version \`${versionClosestToEol.latest}\` is not in the manifest`,
                 body:  `Hello :wave:
@@ -64,6 +69,13 @@ abstract class Tool {
                 labels: ['manifest-version-mismatch'],
             };
     
+            if (this.doesIssueTitleExist(listOfOpenIssues, issueContent.title)) {
+                core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository. Skipping the creation of a new issue.\n`);
+                return;
+            }
+            
+            core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
+
             const githubIssue = new GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
             await githubIssue.createIssue(this.internalRepository, this.name, versionClosestToEol.latest);
             await githubIssue.sendIssueInfoToSlack(this.name, versionClosestToEol.latest);
@@ -78,7 +90,6 @@ abstract class Tool {
         }
 
         core.info(`The version of ${this.name} is losing support in less than 6 months (${versionClosestToEol.eol}).\n`);
-        core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
         
         const issueContent = {
             title: `[AUTOMATIC MESSAGE] ${this.name} version \`${versionClosestToEol.latest}\` is losing support on ${versionClosestToEol.eol}`,
@@ -86,6 +97,13 @@ abstract class Tool {
                     The support for ${this.name} version \`${versionClosestToEol.latest}\` is ending on ${versionClosestToEol.eol}. Please consider upgrading to a newer version of ${this.name}.`,
             labels: ['deprecation-notice'],
         };
+
+        if (this.doesIssueTitleExist(listOfOpenIssues, issueContent.title)) {
+            core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository. Skipping the creation of a new issue.\n`);
+            return;
+        }
+        
+        core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
 
         const githubIssue = new GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
         await githubIssue.createIssue(this.internalRepository, this.name, versionClosestToEol.latest);
@@ -135,20 +153,27 @@ export class GoTool extends Tool {
 
         const goVersionsFromManifest = await this.manifestRepository.getVersionsManifestFromRepo(versionClosestToEol.latest);
         const latestFromManifest = goVersionsFromManifest[0];
+        const listOfOpenIssues = await this.internalRepository.fetchAllIssues();
     
         core.info(`\n ${this.name} version: ${versionClosestToEol.latest}`);
         core.info(` For more info on ${this.name} versions, please visit: https://endoflife.date/go \n`);
         
         if (!semver.gte(versionClosestToEol.latest, latestFromManifest.version)) {
             core.warning(`The version of Go (${versionClosestToEol.latest}) from API does not match the one in the manifest (${latestFromManifest.version}).\n`);
-            core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
             const issueContent = {
                 title: `[AUTOMATIC MESSAGE] Go version \`${versionClosestToEol.latest}\` is not in the manifest`,
                 body:  `Hello :wave:
-                        The latest version of Go is \`${versionClosestToEol.latest}\` and the one in the manifest is \`${latestFromManifest.version}\`. Please consider updating the manifest.`,
+                The latest version of Go is \`${versionClosestToEol.latest}\` and the one in the manifest is \`${latestFromManifest.version}\`. Please consider updating the manifest.`,
                 labels: ['manifest-version-mismatch'],
             };
-    
+
+            if (this.doesIssueTitleExist(listOfOpenIssues, issueContent.title)) {
+                core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository. Skipping the creation of a new issue.\n`);
+                return;
+            }
+            
+            core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
+
             const githubIssue = new GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
             await githubIssue.createIssue(this.internalRepository, this.name, versionClosestToEol.latest);
             await githubIssue.sendIssueInfoToSlack(this.name, versionClosestToEol.latest);
@@ -158,14 +183,20 @@ export class GoTool extends Tool {
         core.info(`The version of Go provided by the API (${versionClosestToEol.latest}) matches the one in the manifest (${latestFromManifest.version}).\n`);
 
         core.warning(`The earlier version of Go (${versionClosestToEol.latest}) is losing support in less than 6 months.\n`);
-        core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
-    
+        
         const issueContent = {
             title: `[AUTOMATIC MESSAGE] Go version \`${versionClosestToEol.latest}\` is losing support soon!`,
             body:  `Hello :wave: 
-                    The support for Go version \`${versionClosestToEol.latest}\` is ending in less than 6 months. Please consider upgrading to a newer version of Go.`,
+            The support for Go version \`${versionClosestToEol.latest}\` is ending in less than 6 months. Please consider upgrading to a newer version of Go.`,
             labels: ['deprecation-notice'],
         };
+        
+        if (this.doesIssueTitleExist(listOfOpenIssues, issueContent.title)) {
+            core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository. Skipping the creation of a new issue.\n`);
+            return;
+        }
+        
+        core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
 
         const githubIssue = new GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
         await githubIssue.createIssue(this.internalRepository, this.name, versionClosestToEol.latest);

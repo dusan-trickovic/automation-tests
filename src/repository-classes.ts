@@ -25,6 +25,21 @@ abstract class BaseRepository {
         this.owner = owner;
         this.repo = repo;
     }
+
+    async fetchAllIssues(): Promise<GitHubIssue[]> {
+        try {
+            const response = await octokit.issues.listForRepo({
+                owner: this.owner,
+                repo: this.repo,
+                state: 'open',
+            });
+            const data: unknown = response.data;
+            return data as GitHubIssue[];
+        } catch (error) {
+            core.setFailed((error as Error).message);
+            throw new Error((error as Error).message);
+        }
+    }
 }
 
 export class InternalRepository extends BaseRepository {
