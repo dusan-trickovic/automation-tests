@@ -41,9 +41,9 @@ export class ManifestRepository extends BaseRepository {
     async getVersionsManifestFromRepo(referenceVersion: string): Promise<INecessaryDataFromManifest[]> {
         try {   
             const response = await octokit.repos.getContent({
-            owner: this.owner,
-            repo:  this.repo,
-            path:  this.path,
+                owner: this.owner,
+                repo:  this.repo,
+                path:  this.path,
             });
     
             const githubFileContent = response.data as IGithubFileContent;
@@ -53,11 +53,10 @@ export class ManifestRepository extends BaseRepository {
             const latestFromManifest: INecessaryDataFromManifest[] = reversedJsonData.filter((item: INecessaryDataFromManifest) => {
                 return semver.gte(item.version, referenceVersion);
             });
-    
             return latestFromManifest as INecessaryDataFromManifest[];
         } catch (error) {
             core.setFailed((error as Error).message);
-            return [];
+            throw new Error((error as Error).message);
         }
     }
 }
@@ -69,7 +68,7 @@ export class GitHubIssue {
         this.labels = labels;
     }
 
-    async sendIssueToSlack(
+    async sendIssueInfoToSlack(
         toolName: string,
         expiringToolVersion: string
     ) {
@@ -87,21 +86,21 @@ export class GitHubIssue {
     }
 
     async createIssue(
-        internalRepository: InternalRepository,
+        repository: InternalRepository,
         toolName: string,
         expiringToolVersion: string
     ) {
         try {
             await octokit.issues.create({
-                owner: internalRepository.owner,
-                repo: internalRepository.repo,
+                owner: repository.owner,
+                repo: repository.repo,
                 title: this.title,
                 body: this.body,
                 labels: this.labels,
             });
-        const successMessage = `Successfully created an issue for ${toolName} version ${expiringToolVersion}.\n`;
-        core.info(successMessage);
-        return;
+            const successMessage = `Successfully created an issue for ${toolName} version ${expiringToolVersion}.\n`;
+            core.info(successMessage);
+            return;
         } catch (error) {
             const errorMessage = (error as Error).message;
             core.setFailed("Error while creating an issue: " + errorMessage);

@@ -24169,7 +24169,7 @@ class ManifestRepository extends BaseRepository {
             }
             catch (error) {
                 core.setFailed(error.message);
-                return [];
+                throw new Error(error.message);
             }
         });
     }
@@ -24184,7 +24184,7 @@ class GitHubIssue {
         this.body = body;
         this.labels = labels;
     }
-    sendIssueToSlack(toolName, expiringToolVersion) {
+    sendIssueInfoToSlack(toolName, expiringToolVersion) {
         return __awaiter(this, void 0, void 0, function* () {
             const slackMessageBuilder = new message_1.SlackMessage();
             try {
@@ -24200,12 +24200,12 @@ class GitHubIssue {
             }
         });
     }
-    createIssue(internalRepository, toolName, expiringToolVersion) {
+    createIssue(repository, toolName, expiringToolVersion) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 yield octokit.issues.create({
-                    owner: internalRepository.owner,
-                    repo: internalRepository.repo,
+                    owner: repository.owner,
+                    repo: repository.repo,
                     title: this.title,
                     body: this.body,
                     labels: this.labels,
@@ -24315,8 +24315,8 @@ class Tool {
             const manifestData = yield this.manifestRepository.getVersionsManifestFromRepo(versionClosestToEol.latest);
             const earliestVersionInManifest = manifestData[0].version;
             if (!semver.gte(versionClosestToEol.latest, earliestVersionInManifest)) {
-                core.info(`The version of ${this.name} (${versionClosestToEol.latest}) provided by the API does not match the one in the manifest (${earliestVersionInManifest}).\n`);
-                core.warning(`The version of ${this.name} provided by the API is ${versionClosestToEol.latest} and the one in the manifest is ${earliestVersionInManifest}.`);
+                core.warning(`The version of ${this.name} (${versionClosestToEol.latest}) provided by the API does not match the one in the manifest (${earliestVersionInManifest}).\n`);
+                core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
                 const issueContent = {
                     title: `[AUTOMATIC MESSAGE] ${this.name} version \`${versionClosestToEol.latest}\` is not in the manifest`,
                     body: `Hello :wave:
@@ -24325,7 +24325,7 @@ class Tool {
                 };
                 const githubIssue = new repository_classes_1.GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
                 yield githubIssue.createIssue(this.internalRepository, this.name, versionClosestToEol.latest);
-                yield githubIssue.sendIssueToSlack(this.name, versionClosestToEol.latest);
+                yield githubIssue.sendIssueInfoToSlack(this.name, versionClosestToEol.latest);
                 return;
             }
             core.info(`The version of ${this.name} provided by the API (${versionClosestToEol.latest}) matches the one in the manifest (${earliestVersionInManifest}). Checking the EOL support date...\n`);
@@ -24333,6 +24333,8 @@ class Tool {
                 core.info(`${this.name} version ${versionClosestToEol.latest} has more than 6 months left before EOL. It will reach its EOL date on ${versionClosestToEol.eol} \n`);
                 return;
             }
+            core.info(`The version of ${this.name} is losing support in less than 6 months (${versionClosestToEol.eol}).\n`);
+            core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
             const issueContent = {
                 title: `[AUTOMATIC MESSAGE] ${this.name} version \`${versionClosestToEol.latest}\` is losing support on ${versionClosestToEol.eol}`,
                 body: `Hello :wave: 
@@ -24341,7 +24343,7 @@ class Tool {
             };
             const githubIssue = new repository_classes_1.GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
             yield githubIssue.createIssue(this.internalRepository, this.name, versionClosestToEol.latest);
-            yield githubIssue.sendIssueToSlack(this.name, versionClosestToEol.latest);
+            yield githubIssue.sendIssueInfoToSlack(this.name, versionClosestToEol.latest);
             return;
         });
     }
@@ -24374,8 +24376,8 @@ class GoTool extends Tool {
             core.info(`\n ${this.name} version: ${versionClosestToEol.latest}`);
             core.info(` For more info on ${this.name} versions, please visit: https://endoflife.date/go \n`);
             if (!semver.gte(versionClosestToEol.latest, latestFromManifest.version)) {
-                core.info(`The version of Go (${versionClosestToEol.latest}) from API does not match the one in the manifest (${latestFromManifest.version}).\n`);
-                core.warning(`The version of Go provided by the API is ${versionClosestToEol.latest} and the one in the manifest is ${latestFromManifest.version}.`);
+                core.warning(`The version of Go (${versionClosestToEol.latest}) from API does not match the one in the manifest (${latestFromManifest.version}).\n`);
+                core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
                 const issueContent = {
                     title: `[AUTOMATIC MESSAGE] Go version \`${versionClosestToEol.latest}\` is not in the manifest`,
                     body: `Hello :wave:
@@ -24384,7 +24386,7 @@ class GoTool extends Tool {
                 };
                 const githubIssue = new repository_classes_1.GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
                 yield githubIssue.createIssue(this.internalRepository, this.name, versionClosestToEol.latest);
-                yield githubIssue.sendIssueToSlack(this.name, versionClosestToEol.latest);
+                yield githubIssue.sendIssueInfoToSlack(this.name, versionClosestToEol.latest);
                 return;
             }
             core.info(`The version of Go provided by the API (${versionClosestToEol.latest}) matches the one in the manifest (${latestFromManifest.version}). Checking the EOL support date...\n`);
@@ -24393,6 +24395,8 @@ class GoTool extends Tool {
                 core.info(`The version ${versionClosestToEol.latest} has more than 6 months left before EOL. It will reach its EOL date on ${versionClosestToEol.eol} \n`);
                 return;
             }
+            core.warning('The version of Go is losing support in less than 6 months.\n');
+            core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
             const issueContent = {
                 title: `[AUTOMATIC MESSAGE] Go version \`${versionClosestToEol.latest}\` is losing support soon!`,
                 body: `Hello :wave: 
@@ -24401,7 +24405,7 @@ class GoTool extends Tool {
             };
             const githubIssue = new repository_classes_1.GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
             yield githubIssue.createIssue(this.internalRepository, this.name, versionClosestToEol.latest);
-            yield githubIssue.sendIssueToSlack(this.name, versionClosestToEol.latest);
+            yield githubIssue.sendIssueInfoToSlack(this.name, versionClosestToEol.latest);
             return;
         });
     }

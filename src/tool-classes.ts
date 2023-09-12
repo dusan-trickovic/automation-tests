@@ -5,7 +5,7 @@ import fetch from 'node-fetch';
 import { dateGte, isDateMoreThanSixMonthsAway } from "./utils";
 import { GitHubIssue, InternalRepository, ManifestRepository } from './repository-classes';
 
-interface IResponseFormat {
+interface IApiResponseFormat {
     eol: string;
     latest: string;
     latestReleaseDate: string;
@@ -24,14 +24,14 @@ abstract class Tool {
         this.manifestRepository = manifestRepository;
     }
 
-    protected async getVersionsFromApi(url: string): Promise<IResponseFormat[]> {
+    protected async getVersionsFromApi(url: string): Promise<IApiResponseFormat[]> {
         const response = await fetch(url);
-        const data: IResponseFormat[] = await response.json() as IResponseFormat[];
+        const data: IApiResponseFormat[] = await response.json() as IApiResponseFormat[];
         return data;
     }
 
-    protected async filterApiData(data: IResponseFormat[]) {
-        const filteredData = data.filter((item: IResponseFormat) => {
+    protected async filterApiData(data: IApiResponseFormat[]) {
+        const filteredData = data.filter((item: IApiResponseFormat) => {
             const eolDate = new Date(item.eol);
             // The condition below is needed as 'lts: false' for Node means that the version is unstable (e.g. v15)
             // while in the response for Python and Go, all versions have 'lts' set to false and it would return undefined.
@@ -55,8 +55,8 @@ abstract class Tool {
         const earliestVersionInManifest = manifestData[0].version;
     
         if (!semver.gte(versionClosestToEol.latest, earliestVersionInManifest)) {
-            core.info(`The version of ${this.name} (${versionClosestToEol.latest}) provided by the API does not match the one in the manifest (${earliestVersionInManifest}).\n`);
-            core.warning(`The version of ${this.name} provided by the API is ${versionClosestToEol.latest} and the one in the manifest is ${earliestVersionInManifest}.`);
+            core.warning(`The version of ${this.name} (${versionClosestToEol.latest}) provided by the API does not match the one in the manifest (${earliestVersionInManifest}).\n`);
+            core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
             const issueContent = {
                 title: `[AUTOMATIC MESSAGE] ${this.name} version \`${versionClosestToEol.latest}\` is not in the manifest`,
                 body:  `Hello :wave:
@@ -66,7 +66,7 @@ abstract class Tool {
     
             const githubIssue = new GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
             await githubIssue.createIssue(this.internalRepository, this.name, versionClosestToEol.latest);
-            await githubIssue.sendIssueToSlack(this.name, versionClosestToEol.latest);
+            await githubIssue.sendIssueInfoToSlack(this.name, versionClosestToEol.latest);
             return;
         }
     
@@ -76,6 +76,9 @@ abstract class Tool {
             core.info(`${this.name} version ${versionClosestToEol.latest} has more than 6 months left before EOL. It will reach its EOL date on ${versionClosestToEol.eol} \n`);
             return;
         }
+
+        core.info(`The version of ${this.name} is losing support in less than 6 months (${versionClosestToEol.eol}).\n`);
+        core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
         
         const issueContent = {
             title: `[AUTOMATIC MESSAGE] ${this.name} version \`${versionClosestToEol.latest}\` is losing support on ${versionClosestToEol.eol}`,
@@ -86,7 +89,7 @@ abstract class Tool {
 
         const githubIssue = new GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
         await githubIssue.createIssue(this.internalRepository, this.name, versionClosestToEol.latest);
-        await githubIssue.sendIssueToSlack(this.name, versionClosestToEol.latest);
+        await githubIssue.sendIssueInfoToSlack(this.name, versionClosestToEol.latest);
         return;
         
     }
@@ -98,7 +101,7 @@ export class NodeTool extends Tool {
         name: string = 'Node', 
         eolApiEndpoint: string = 'https://endoflife.date/api/node.json', 
         manifestRepository: ManifestRepository = new ManifestRepository('actions', 'node-versions')
-        ) {
+    ) {
         super(name, eolApiEndpoint, manifestRepository);
     }
 }
@@ -109,7 +112,7 @@ export class PythonTool extends Tool {
         name: string = 'Python',
         eolApiEndpoint: string = 'https://endoflife.date/api/python.json',
         manifestRepository: ManifestRepository = new ManifestRepository('actions', 'python-versions')
-        ) {
+    ) {
         super(name, eolApiEndpoint, manifestRepository);
     }
 }
@@ -120,7 +123,7 @@ export class GoTool extends Tool {
         name: string = 'Go',
         eolApiEndpoint: string = 'https://endoflife.date/api/go.json',
         manifestRepository: ManifestRepository = new ManifestRepository('actions', 'go-versions')
-        ) {
+    ) {
         super(name, eolApiEndpoint, manifestRepository);
     }
 
@@ -138,8 +141,8 @@ export class GoTool extends Tool {
         core.info(` For more info on ${this.name} versions, please visit: https://endoflife.date/go \n`);
         
         if (!semver.gte(versionClosestToEol.latest, latestFromManifest.version)) {
-            core.info(`The version of Go (${versionClosestToEol.latest}) from API does not match the one in the manifest (${latestFromManifest.version}).\n`);
-            core.warning(`The version of Go provided by the API is ${versionClosestToEol.latest} and the one in the manifest is ${latestFromManifest.version}.`);
+            core.warning(`The version of Go (${versionClosestToEol.latest}) from API does not match the one in the manifest (${latestFromManifest.version}).\n`);
+            core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
             const issueContent = {
                 title: `[AUTOMATIC MESSAGE] Go version \`${versionClosestToEol.latest}\` is not in the manifest`,
                 body:  `Hello :wave:
@@ -149,7 +152,7 @@ export class GoTool extends Tool {
     
             const githubIssue = new GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
             await githubIssue.createIssue(this.internalRepository, this.name, versionClosestToEol.latest);
-            await githubIssue.sendIssueToSlack(this.name, versionClosestToEol.latest);
+            await githubIssue.sendIssueInfoToSlack(this.name, versionClosestToEol.latest);
             return;
         }
     
@@ -161,6 +164,9 @@ export class GoTool extends Tool {
             core.info(`The version ${versionClosestToEol.latest} has more than 6 months left before EOL. It will reach its EOL date on ${versionClosestToEol.eol} \n`);
             return;
         }
+
+        core.warning('The version of Go is losing support in less than 6 months.\n');
+        core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
     
         const issueContent = {
             title: `[AUTOMATIC MESSAGE] Go version \`${versionClosestToEol.latest}\` is losing support soon!`,
@@ -171,7 +177,7 @@ export class GoTool extends Tool {
 
         const githubIssue = new GitHubIssue(issueContent.title, issueContent.body, issueContent.labels);
         await githubIssue.createIssue(this.internalRepository, this.name, versionClosestToEol.latest);
-        await githubIssue.sendIssueToSlack(this.name, versionClosestToEol.latest);
+        await githubIssue.sendIssueInfoToSlack(this.name, versionClosestToEol.latest);
         return;
 
     }
