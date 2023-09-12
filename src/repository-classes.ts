@@ -42,7 +42,7 @@ abstract class BaseRepository {
 
     async findIssueByTitle(title: string): Promise<GitHubIssue | null> {
         const allOpenIssues = await this.fetchAllOpenIssues();
-        const issue = allOpenIssues.find((issue: any) => issue.title === title);
+        const issue = allOpenIssues.find((issue: GitHubIssue) => issue.title === title);
         return issue || null;
     }
 }
