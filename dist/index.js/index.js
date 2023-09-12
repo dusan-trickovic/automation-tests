@@ -24367,9 +24367,9 @@ class GoTool extends Tool {
     checkVersions() {
         return __awaiter(this, void 0, void 0, function* () {
             const goVersionsFromEolApi = yield this.getVersionsFromApi(this.eolApiEndpoint);
-            const firstTwoVersionsFromEolApi = goVersionsFromEolApi.slice(0, 2);
-            const reversedFirstTwoVersions = firstTwoVersionsFromEolApi.reverse();
-            const versionClosestToEol = reversedFirstTwoVersions[0];
+            // Each major Go release is supported until there are two newer major releases
+            // The security policy can be found at https://go.dev/doc/devel/release#policy
+            const versionClosestToEol = goVersionsFromEolApi[1];
             const goVersionsFromManifest = yield this.manifestRepository.getVersionsManifestFromRepo(versionClosestToEol.latest);
             const firstTwoVersionsFromManifest = goVersionsFromManifest.slice(0, 2);
             const latestFromManifest = firstTwoVersionsFromManifest[0];
