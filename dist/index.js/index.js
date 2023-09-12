@@ -24270,7 +24270,6 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.GoTool = exports.PythonTool = exports.NodeTool = void 0;
 const semver = __importStar(__nccwpck_require__(1383));
 const core = __importStar(__nccwpck_require__(2186));
-const dayjs_1 = __importDefault(__nccwpck_require__(7401));
 const node_fetch_1 = __importDefault(__nccwpck_require__(4429));
 const utils_1 = __nccwpck_require__(1314);
 const repository_classes_1 = __nccwpck_require__(7613);
@@ -24371,8 +24370,7 @@ class GoTool extends Tool {
             // The security policy can be found at https://go.dev/doc/devel/release#policy
             const versionClosestToEol = goVersionsFromEolApi[1];
             const goVersionsFromManifest = yield this.manifestRepository.getVersionsManifestFromRepo(versionClosestToEol.latest);
-            const firstTwoVersionsFromManifest = goVersionsFromManifest.slice(0, 2);
-            const latestFromManifest = firstTwoVersionsFromManifest[0];
+            const latestFromManifest = goVersionsFromManifest[0];
             core.info(`\n ${this.name} version: ${versionClosestToEol.latest}`);
             core.info(` For more info on ${this.name} versions, please visit: https://endoflife.date/go \n`);
             if (!semver.gte(versionClosestToEol.latest, latestFromManifest.version)) {
@@ -24389,13 +24387,8 @@ class GoTool extends Tool {
                 yield githubIssue.sendIssueInfoToSlack(this.name, versionClosestToEol.latest);
                 return;
             }
-            core.info(`The version of Go provided by the API (${versionClosestToEol.latest}) matches the one in the manifest (${latestFromManifest.version}). Checking the EOL support date...\n`);
-            const sixMonthsFromEarliestVersion = (0, dayjs_1.default)(versionClosestToEol.latestReleaseDate).add(6, "months").format("YYYY-MM-DD");
-            if ((0, utils_1.isDateMoreThanSixMonthsAway)(new Date(sixMonthsFromEarliestVersion))) {
-                core.info(`The version ${versionClosestToEol.latest} has more than 6 months left before EOL. It will reach its EOL date on ${versionClosestToEol.eol} \n`);
-                return;
-            }
-            core.warning('The version of Go is losing support in less than 6 months.\n');
+            core.info(`The version of Go provided by the API (${versionClosestToEol.latest}) matches the one in the manifest (${latestFromManifest.version}).\n`);
+            core.warning(`The earlier version of Go (${versionClosestToEol.latest}) is losing support in less than 6 months.\n`);
             core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
             const issueContent = {
                 title: `[AUTOMATIC MESSAGE] Go version \`${versionClosestToEol.latest}\` is losing support soon!`,
