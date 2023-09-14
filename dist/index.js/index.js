@@ -23970,7 +23970,7 @@ function main() {
             const promises = [
                 nodeTool.checkVersions(),
                 pythonTool.checkVersions(),
-                goTool.checkVersions(),
+                goTool.checkVersions()
             ];
             yield Promise.all(promises);
         }
@@ -24041,7 +24041,6 @@ class Message {
         const currentDate = new Date(Date.now()).toLocaleDateString('en-GB', dateFormatOptions);
         return `:warning: *New deprecation alert for ${currentDate}.*`;
     }
-    ;
 }
 exports.Message = Message;
 class SlackMessage extends Message {
@@ -24128,8 +24127,8 @@ const node_fetch_1 = __importDefault(__nccwpck_require__(4429));
 const octokit = new rest_1.Octokit({
     auth: `${config_1.ACCESS_TOKEN}`,
     request: {
-        fetch: node_fetch_1.default,
-    },
+        fetch: node_fetch_1.default
+    }
 });
 class BaseRepository {
     constructor(owner, repo) {
@@ -24144,7 +24143,7 @@ class BaseRepository {
                 const response = yield octokit.issues.listForRepo({
                     owner: this.owner,
                     repo: this.repo,
-                    state: 'open',
+                    state: 'open'
                 });
                 const data = response.data;
                 return data;
@@ -24158,12 +24157,12 @@ class BaseRepository {
         return __awaiter(this, void 0, void 0, function* () {
             const allOpenIssues = yield this.fetchAllOpenIssues();
             const issue = allOpenIssues.find((issue) => issue.title === title);
-            return issue || null;
+            return issue;
         });
     }
 }
 class InternalRepository extends BaseRepository {
-    constructor(owner = 'dusan-trickovic', repo = 'automation-tests') {
+    constructor(owner = 'actions', repo = 'setup-actions-team') {
         super(owner, repo);
     }
 }
@@ -24179,7 +24178,7 @@ class ManifestRepository extends BaseRepository {
                 const response = yield octokit.repos.getContent({
                     owner: this.owner,
                     repo: this.repo,
-                    path: this.path,
+                    path: this.path
                 });
                 const githubFileContent = response.data;
                 const content = Buffer.from(githubFileContent.content, 'base64').toString();
@@ -24214,11 +24213,10 @@ class GitHubIssue {
                 yield slackMessageBuilder.sendMessage();
                 const successMessage = `Successfully sent a Slack message regarding the issue for ${toolName} version ${expiringToolVersion}. \n`;
                 core.info(successMessage);
-                return;
             }
             catch (error) {
                 const errorMessage = error.message;
-                core.setFailed("Error while sending the notification to Slack: " + errorMessage);
+                core.setFailed('Error while sending the notification to Slack: ' + errorMessage);
             }
         });
     }
@@ -24230,15 +24228,14 @@ class GitHubIssue {
                     repo: repository.repo,
                     title: this.title,
                     body: this.body,
-                    labels: this.labels,
+                    labels: this.labels
                 });
                 const successMessage = `Successfully created an issue for ${toolName} version ${expiringToolVersion}.\n`;
                 core.info(successMessage);
-                return;
             }
             catch (error) {
                 const errorMessage = error.message;
-                core.setFailed("Error while creating an issue: " + errorMessage);
+                core.setFailed('Error while creating an issue: ' + errorMessage);
             }
         });
     }
@@ -24308,21 +24305,23 @@ class Tool {
     getVersionsFromApi(url) {
         return __awaiter(this, void 0, void 0, function* () {
             const response = yield (0, node_fetch_1.default)(url);
-            const data = yield response.json();
+            const data = (yield response.json());
             return data;
         });
     }
     filterApiData(data) {
         return __awaiter(this, void 0, void 0, function* () {
-            const filteredData = data.filter((item) => {
+            const filteredData = data
+                .filter((item) => {
                 const eolDate = new Date(item.eol);
                 // The condition below is needed as 'lts: false' for Node means that the version is unstable (e.g. v15)
                 // while in the response for Python and Go, all versions have 'lts' set to false and it would return undefined.
-                const condition = this.name === 'Node' ?
-                    ((0, utils_1.dateGte)(eolDate, new Date()) && item.lts !== false) :
-                    (0, utils_1.dateGte)(eolDate, new Date());
+                const condition = this.name === 'Node'
+                    ? (0, utils_1.dateGte)(eolDate, new Date()) && item.lts !== false
+                    : (0, utils_1.dateGte)(eolDate, new Date());
                 return condition;
-            }).reverse();
+            })
+                .reverse();
             return filteredData;
         });
     }
@@ -24341,10 +24340,10 @@ class Tool {
                     title: `[AUTOMATIC MESSAGE] ${this.name} version \`${versionClosestToEol.latest}\` is not in the manifest`,
                     body: `Hello :wave:
                         The earliest version of ${this.name} is \`${versionClosestToEol.latest}\` and the one in the manifest is \`${earliestVersionInManifest}\`. Please consider updating the manifest.`,
-                    labels: ['manifest-version-mismatch'],
+                    labels: ['manifest-version-mismatch']
                 };
                 if (yield this.internalRepository.findIssueByTitle(issueContent.title)) {
-                    core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository. Skipping the creation of a new issue.\n`);
+                    core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository (${this.internalRepository.owner}/${this.internalRepository.repo}). Skipping the creation of a new issue.\n`);
                     return;
                 }
                 core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
@@ -24363,10 +24362,10 @@ class Tool {
                 title: `[AUTOMATIC MESSAGE] ${this.name} version \`${versionClosestToEol.latest}\` is losing support on ${versionClosestToEol.eol}`,
                 body: `Hello :wave: 
                     The support for ${this.name} version \`${versionClosestToEol.latest}\` is ending on ${versionClosestToEol.eol}. Please consider upgrading to a newer version of ${this.name}.`,
-                labels: ['deprecation-notice'],
+                labels: ['deprecation-notice']
             };
             if (yield this.internalRepository.findIssueByTitle(issueContent.title)) {
-                core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository. Skipping the creation of a new issue.\n`);
+                core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository (${this.internalRepository.owner}/${this.internalRepository.repo}). Skipping the creation of a new issue.\n`);
                 return;
             }
             core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
@@ -24409,10 +24408,10 @@ class GoTool extends Tool {
                     title: `[AUTOMATIC MESSAGE] Go version \`${versionClosestToEol.latest}\` is not in the manifest`,
                     body: `Hello :wave:
                 The latest version of Go is \`${versionClosestToEol.latest}\` and the one in the manifest is \`${latestFromManifest.version}\`. Please consider updating the manifest.`,
-                    labels: ['manifest-version-mismatch'],
+                    labels: ['manifest-version-mismatch']
                 };
                 if (yield this.internalRepository.findIssueByTitle(issueContent.title)) {
-                    core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository. Skipping the creation of a new issue.\n`);
+                    core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository (${this.internalRepository.owner}/${this.internalRepository.repo}). Skipping the creation of a new issue.\n`);
                     return;
                 }
                 core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');
@@ -24427,10 +24426,10 @@ class GoTool extends Tool {
                 title: `[AUTOMATIC MESSAGE] Go version \`${versionClosestToEol.latest}\` is losing support soon!`,
                 body: `Hello :wave: 
             The support for Go version \`${versionClosestToEol.latest}\` is ending in less than 6 months. Please consider upgrading to a newer version of Go.`,
-                labels: ['deprecation-notice'],
+                labels: ['deprecation-notice']
             };
             if (yield this.internalRepository.findIssueByTitle(issueContent.title)) {
-                core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository. Skipping the creation of a new issue.\n`);
+                core.info(`\n The issue with the title '${issueContent.title}' already exists. Please check the internal repository (${this.internalRepository.owner}/${this.internalRepository.repo}). Skipping the creation of a new issue.\n`);
                 return;
             }
             core.info('Creating an issue in the internal repository and sending a notification to Slack...\n');

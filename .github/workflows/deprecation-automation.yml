@@ -1,8 +1,8 @@
 name: Deprecation Automation Workflow
 
 on:
-  schedule:
-    - cron: '0 0 1 * *'
+  # schedule:
+  #   - cron: '0 0 1 * *'
   workflow_dispatch:
 
 jobs:
@@ -18,12 +18,6 @@ jobs:
           with:
             node-version: 16.x
             cache: 'npm'
-
-        - name: Install Dependencies
-          run: npm ci
-
-        - name: Build
-          run: npm run build
 
         - name: Run Deprecation Script
           run: npm run start
